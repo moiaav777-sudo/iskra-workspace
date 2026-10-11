@@ -53,6 +53,9 @@ HOST="$(getenv HOST)"; HOST="${HOST:-127.0.0.1}"
 ADMIN_LOGIN="$(getenv ADMIN_LOGIN)"; ADMIN_LOGIN="${ADMIN_LOGIN:-admin}"
 ADMIN_PASSWORD="$(getenv ADMIN_PASSWORD)"
 [ -n "$ADMIN_PASSWORD" ] || { ADMIN_PASSWORD="$(rand 9)"; setenv ADMIN_PASSWORD "$ADMIN_PASSWORD"; }
+# демонстрационный сотрудник (пользовательская часть: все сервисы открыты); пустой логин — не заводить
+USER_LOGIN="$(getenv USER_LOGIN)"
+USER_PASSWORD="$(getenv USER_PASSWORD)"
 PORTAL_SECRET="$(getenv PORTAL_SECRET)"
 [ -n "$PORTAL_SECRET" ] || { PORTAL_SECRET="$(rand 24)"; setenv PORTAL_SECRET "$PORTAL_SECRET"; }
 SECRET_KEY="$(getenv SECRET_KEY)"
@@ -114,16 +117,23 @@ export DEV_GATEWAY_PORT="$PORT" DEV_GATEWAY_HOST="$HOST"
 # ключ «Искры»: из .env — всем сервисам сразу; пусто — вводится в портале, который разложит его по .env сервисов
 [ -n "$ISKRA_API_KEY" ] && export ISKRA_API_KEY
 
-# ── администратор (первый запуск) ──────────────────────────────────────────────────────────────────
-( cd "$W/portal" && "$(venv_py portal)" - "$ADMIN_LOGIN" "$ADMIN_PASSWORD" <<'PY'
+# ── учётные записи из .env: администратор и демонстрационный сотрудник ─────────────────────────────
+# Пароли каждый запуск приводятся к .env (стенд должен открываться тем, что написано в файле); сотрудник
+# получает доступ ко всем сервисам. Остальных людей заводит администратор в портале.
+( cd "$W/portal" && "$(venv_py portal)" - "$ADMIN_LOGIN" "$ADMIN_PASSWORD" "$USER_LOGIN" "$USER_PASSWORD" <<'PY'
 import sys
-from app import auth, db
-login, password = sys.argv[1], sys.argv[2]
-if not db.get_user(login):
-    db.create_user(login, auth.hash_password(password), full_name="Администратор", role="admin", must_change_password=False)
-    print(f"   администратор создан: {login}")
-else:
-    print(f"   администратор уже есть: {login}")
+from app import auth, db, config
+admin, admin_pw, user, user_pw = sys.argv[1:5]
+def ensure(login, pw, role, name, services):
+    if not login or not pw: return
+    if db.get_user(login):
+        db.update_user(login, password_hash=auth.hash_password(pw), must_change_password=False, active=True)
+        print(f"   {name}: {login} (пароль из .env)")
+    else:
+        db.create_user(login, auth.hash_password(pw), full_name=name, role=role, services=services, must_change_password=False)
+        print(f"   {name} создан: {login}")
+ensure(admin, admin_pw, "admin", "Администратор", None)
+ensure(user, user_pw, "employee", "Сотрудник", list(config.SERVICE_IDS))
 PY
 )
 
@@ -151,7 +161,9 @@ PY
   sleep 1
 done
 echo
-echo "Готово. Рабочее пространство: http://${HOST}:${PORT}   (вход: ${ADMIN_LOGIN} / ${ADMIN_PASSWORD})"
+echo "Готово. Рабочее пространство: http://${HOST}:${PORT}"
+echo "   администратор: ${ADMIN_LOGIN} / ${ADMIN_PASSWORD}   (люди, доступы, ключ «Искры», журнал; документы не правит)"
+[ -n "$USER_LOGIN" ] && [ -n "$USER_PASSWORD" ] && echo "   сотрудник:     ${USER_LOGIN} / ${USER_PASSWORD}   (работа во всех сервисах)"
 [ -n "$ISKRA_API_KEY" ] || echo "Ключ «Искры» не задан: впишите ISKRA_API_KEY в .env и перезапустите, или введите его в «Администрирование → Искра»."
 echo "Журналы: $DATA/logs/*.log. Остановить: Ctrl+C."
 wait
