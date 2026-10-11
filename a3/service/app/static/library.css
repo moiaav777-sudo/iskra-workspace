@@ -1,0 +1,189 @@
+/* Библиотека листов A3. Цвета и размеры — общие для всего пространства, в /static/base.css. */
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }  /* display у .paste и .progress перебивает атрибут */
+/* Шрифт, базовый размер и межстрочный интервал — общие, из base.css
+   (контракт ../../CLAUDE.md, п. 5б). Своих здесь не объявляем: раньше было
+   15 px и свой шрифт, и соседние вкладки расходились на 43 %. */
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+}
+/* Синюю полосу рабочего пространства рисует портал (workspace-header.js).
+   Ниже — шапка самого сервиса, одна на всё пространство по виду: название
+   слева, действия справа (разбор 20.09, ../../DESIGN-AUDIT.md). */
+.topbar { background: var(--card); border-bottom: 1px solid var(--line); }
+.topbar-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 10px 24px;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.topbar .brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: var(--text-h2);
+  font-weight: 700;
+  color: var(--blue);
+}
+.topbar .brand svg { width: 20px; height: 20px; flex: none; }
+.topbar .actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 24px 60px; }
+h2 { font-size: var(--text-h2); margin: 0 0 6px; }
+.lead { color: var(--muted); margin: 0 0 16px; max-width: 70ch; }
+
+.drop { background: var(--card); border-radius: 14px; padding: 22px; box-shadow: 0 1px 3px rgba(16,40,80,.08); }
+.drop-zone {
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  padding: 26px;
+  text-align: center;
+  transition: border-color .15s, background .15s;
+}
+.drop-zone.over { border-color: var(--accent); background: #eef5ff; }
+.drop-zone b { display: block; font-size: 1rem; }
+.drop-zone span { display: block; color: var(--muted); font-size: var(--text-small); margin-top: 4px; }
+.drop-actions { margin-top: 14px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+button {
+  font: inherit;
+  font-weight: 600;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+button.ghost { background: #eaf0f8; color: var(--blue); }
+button:disabled { opacity: .55; cursor: default; }
+.paste { margin-top: 14px; display: grid; gap: 8px; }
+textarea {
+  width: 100%;
+  /* моноширинный — здесь это вставленный текст справки, а не проза */
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: var(--text-small);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  resize: vertical;
+}
+.progress { margin-top: 14px; display: flex; align-items: center; gap: 10px; color: var(--blue); font-weight: 600; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .25; } }
+.error { margin-top: 14px; color: var(--red); font-weight: 600; white-space: pre-wrap; }
+
+.list { margin-top: 28px; }
+.list-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.list-head h2 { margin: 0 8px 0 0; }
+input[type="search"], select {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+}
+input[type="search"] { flex: 1 1 260px; }
+.check { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--text-small); }
+.cards { display: grid; gap: 10px; }
+.card {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(16,40,80,.07);
+}
+/* Шапку карточки не переопределяем: вид один на всё пространство, в base.css */
+.card h3 { margin: 0 0 3px; font-size: var(--text-h2); font-weight: 600; }
+.card .meta { color: var(--muted); font-size: var(--text-small); }
+.card .grow { flex: 1; min-width: 0; }
+.card h3 a { color: inherit; text-decoration: none; }
+/* метка состояния: пока «Искра» дорабатывает лист, это видно прямо в списке */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--text-small);
+  font-weight: 600;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.tag--checking, .tag--fixing { background: #e6f0fd; color: #1050a0; }
+.tag--warn { background: #fdf0d9; color: #8a5a06; }
+.tag--ok { background: #e6f5ea; color: #1d6b37; }
+.tag .spin {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #aac6ea;
+  border-top-color: #1667c8;
+  border-radius: 50%;
+  animation: tagspin .9s linear infinite;
+}
+@keyframes tagspin { to { transform: rotate(360deg); } }
+.card h3 a:hover { color: var(--accent); }
+.card .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.card .acts button, .card .acts a {
+  font-size: var(--text-small);
+  padding: 6px 10px;
+  background: #eaf0f8;
+  color: var(--blue);
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  border: 0;
+  cursor: pointer;
+}
+.card .acts .danger { background: #fdeaea; color: var(--red); }
+/* На узком экране пять кнопок отжимали название листа в нулевую ширину — оно
+   рассыпалось по одному слову в строку. Карточка складывается в два ряда. */
+@media (max-width: 640px) {
+  .card { flex-wrap: wrap; }
+  .card .grow { flex: 1 0 100%; }
+}
+.empty { color: var(--muted); }
+dialog { border: 0; border-radius: 14px; padding: 20px; max-width: 560px; width: 92vw; }
+dialog h3 { margin: 0 0 12px; }
+dialog::backdrop { background: rgba(10,25,45,.45); }
+.ver { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: var(--text-small); }
+.ver:first-child { border-top: 0; }
+.ver .grow { flex: 1; }
+.ver b { font-variant-numeric: tabular-nums; }
+
+/* меню редких действий в карточке листа */
+.acts { position: relative; }
+.acts .more { min-width: 44px; }
+.acts .menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20;
+  display: grid; gap: 6px; padding: 8px;
+  background: #fff; border: 1px solid var(--line, #dde2ea); border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(6, 42, 95, .16);
+}
+.acts .menu button { white-space: nowrap; }
+
+@media (max-width: 700px) {
+  .acts a, .acts button { min-height: 44px; display: inline-flex; align-items: center; }
+}
+
+/* окно «приложить лист к совещанию» */
+.modal-back { position: fixed; inset: 0; background: rgba(6, 20, 45, .45); display: grid; place-items: center; z-index: 50; padding: 16px; }
+.modal-back .modal { background: var(--card); border-radius: var(--radius-m, 10px); padding: 20px; width: min(520px, 100%); box-shadow: 0 10px 30px rgba(6, 42, 95, .2); }
+.modal-back h3 { margin: 0 0 6px; }
+.modal-back .muted { margin: 0 0 12px; }
+.modal-back select, .modal-back input { width: 100%; margin-bottom: 10px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; font: inherit; background: var(--card); color: var(--ink); }
+.modal-back .acts { display: flex; gap: 10px; justify-content: flex-end; }
+.modal-back button { min-height: 40px; }
+
+/* круг показа списка: мои / отдела / все */
+.scopes { display: flex; gap: 6px; margin: 0 0 12px; flex-wrap: wrap; }
+.scopes .scope { font: inherit; font-size: var(--text-small); cursor: pointer; padding: 6px 12px; min-height: 36px;
+  border: 1px solid var(--line); border-radius: 99px; background: var(--card); color: var(--muted); }
+.scopes .scope.active { background: var(--accent-bg, rgba(20,70,150,.08)); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+@media (max-width: 700px) { .scopes .scope { min-height: 44px; } }

@@ -1,0 +1,31 @@
+# Рабочее пространство одним контейнером.
+#   cp .env.example .env   # впишите ISKRA_API_KEY (можно и позже, в «Администрирование → Искра»)
+#   docker compose up -d --build
+#   http://localhost:8080  — логин и пароль администратора печатает `docker compose logs workspace`
+# Данные (базы, документы, журналы, сгенерированные секреты) — в томе workspace-data.
+services:
+  workspace:
+    build: .
+    image: iskra-workspace:latest
+    ports:
+      - "${PORT:-8080}:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8080"
+      ENV_FILE: /app/data/.env
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+    volumes:
+      - workspace-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  workspace-data:

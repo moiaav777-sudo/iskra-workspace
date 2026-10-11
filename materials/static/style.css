@@ -1,0 +1,228 @@
+/* Оформление сервиса «Материалы».
+
+   Общие блоки (шапка, карточки, кнопки, формы, списки, окна) взяты из «Тезисов»
+   и «Повестки» без изменений: человек ходит между сервисами пространства и не
+   должен переучиваться. Ниже, после общей части, — только своё: папка мероприятия,
+   шкала готовности и раскладка входящих документов.
+
+   Цвета, шрифт и размеры текста — общие для всего пространства, в /static/base.css
+   (отдаёт портал). Своих не заводим: контракт `../CLAUDE.md`, п. 5б. Мелкий текст —
+   var(--text-small), заголовки — var(--text-h1) и var(--text-h2), основной наследуется. */
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:var(--bg);color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+/* ── шапка ── */
+.topbar{position:sticky;top:0;z-index:50;height:64px;background:var(--surface);border-bottom:1px solid var(--border);backdrop-filter:blur(8px);}
+.topbar-inner{max-width:1280px;margin:0 auto;width:100%;height:100%;display:flex;align-items:center;justify-content:space-between;padding:0 24px;}
+.topbar .brand{display:flex;align-items:center;gap:9px;font-weight:600;color:var(--text);}
+.topbar .brand svg{width:18px;height:18px;color:var(--accent);}
+.topbar .actions{display:flex;align-items:center;gap:10px;}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--surface);color:var(--text-2);cursor:pointer;transition:all .15s var(--ease);}
+.icon-btn:hover{background:var(--surface-2);color:var(--text);}
+.btn-primary{height:46px;padding:0 16px;border:1px solid var(--accent);border-radius:var(--radius-s);background:var(--accent);color:var(--accent-ink);font-weight:500;cursor:pointer;transition:all .15s var(--ease);}
+.btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);}
+.btn-primary:active{transform:scale(.98);}
+
+/* ── каркас ── */
+.wrap{max-width:1280px;margin:0 auto;padding:28px 24px 72px;}
+.grid{display:grid;grid-template-columns:340px minmax(0,1fr);gap:24px;align-items:start;}
+.col{display:flex;flex-direction:column;gap:14px;}
+/* рабочая колонка обязана сжиматься: иначе длинная строка кнопок или вкладок
+   растягивает страницу шире окна и правые кнопки становятся недостижимыми */
+#workspace{min-width:0;}
+#workspace .card{min-width:0;}
+
+/* ── карточки ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-m);padding:20px;box-shadow:var(--shadow-sm);}
+.card h2{margin-bottom:14px;}        /* вид шапки — общий, из base.css */
+
+/* ── список совещаний ── */
+.list-item{padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-m);margin-bottom:8px;cursor:pointer;transition:all .15s var(--ease);background:var(--surface);overflow:hidden;}
+.list-item:hover{border-color:var(--border-strong);box-shadow:var(--shadow-sm);}
+.list-item .t{font-weight:600;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:break-word;word-break:break-word;}
+.list-item .s{font-size:var(--text-small);color:var(--text-muted);}
+.list-item.active{border-color:var(--accent);background:var(--accent-bg);}
+.list-item:focus-visible,.dropzone:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.month-h{padding:10px 4px 4px;font-size:var(--text-small);font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);}
+
+/* ── формы ── */
+input,textarea,select{width:100%;height:46px;padding:0 12px;border:1px solid var(--border-strong);border-radius:var(--radius-s);color:var(--text);background:var(--surface);transition:border-color .15s var(--ease),box-shadow .15s var(--ease);margin-bottom:10px;}
+textarea{height:auto;min-height:96px;padding:10px 12px;resize:vertical;line-height:1.5;}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg);}
+label{font-weight:500;color:var(--text-2);display:block;margin:10px 0 4px;}
+label:first-child{margin-top:0;}
+
+/* ── кнопки ── */
+.btn{height:46px;padding:0 16px;border:1px solid var(--accent);border-radius:var(--radius-s);background:var(--accent);color:var(--accent-ink);font-weight:500;cursor:pointer;transition:all .15s var(--ease);white-space:nowrap;}
+.btn:hover{background:var(--accent-hover);border-color:var(--accent-hover);}
+.btn:active{transform:scale(.98);}
+.btn.ghost{background:var(--surface);color:var(--text-2);border-color:var(--border-strong);}
+.btn.ghost:hover{background:var(--surface-2);color:var(--text);border-color:var(--border-strong);}
+.btn.danger{background:var(--surface);color:var(--danger);border-color:var(--border-strong);}
+.btn.danger:hover{background:var(--danger-bg);border-color:var(--danger);}
+.btn.block{width:100%;}
+.btn:disabled{opacity:.5;cursor:default;transform:none;}
+
+.muted{color:var(--text-muted);}
+.empty{color:var(--text-muted);padding:10px 0;}
+hr{border:none;border-top:1px solid var(--border);margin:16px 0;}
+.dropzone{border:2px dashed var(--border-strong);border-radius:10px;padding:22px;text-align:center;cursor:pointer;margin-top:14px;transition:border-color .15s var(--ease),background .15s var(--ease);}
+.dropzone:hover,.dropzone.dz-over{border-color:var(--accent);background:var(--accent-bg);}
+.dz-title{font-weight:600;margin-bottom:4px;}
+
+/* ── тосты ── */
+#toasts{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;flex-direction:column;gap:8px;}
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-m);padding:12px 16px;color:var(--text);box-shadow:var(--shadow-md);animation:rise .2s var(--ease);max-width:360px;}
+.toast.ok{border-left:3px solid var(--success);}
+.toast.err{border-left:3px solid var(--danger);}
+
+/* ── модалка ── */
+.overlay{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.4);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;animation:fade .15s var(--ease);}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;width:400px;max-width:90vw;box-shadow:var(--shadow-md);animation:rise .2s var(--ease);margin:auto;max-height:calc(100vh - 48px);overflow-y:auto;}
+.modal h3{font-size:var(--text-h2);font-weight:600;margin-bottom:8px;}
+.modal p{color:var(--text-2);margin-bottom:18px;}
+.modal .modal-actions{display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:var(--surface);padding-top:12px;}
+
+@keyframes rise{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fade{from{opacity:0;}to{opacity:1;}}
+
+/* ── своё для «Материалов» ─────────────────────────────────────────────── */
+
+/* Строка файла: номер — как в проводнике, слева, моноширинно по цифрам.
+   Слева от номера — ручка перетаскивания: порядок в списке и есть нумерация. */
+.file{display:grid;grid-template-columns:74px minmax(0,1fr) auto;gap:12px;align-items:center;
+  padding:10px 4px;border-bottom:1px solid var(--border);}
+.file:last-child{border-bottom:none;}
+.file .num{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;font-weight:700;
+  color:var(--text-2);}
+.file .grip{width:14px;color:var(--text-muted);cursor:grab;font-weight:400;user-select:none;}
+.file .grip.empty-grip{cursor:default;}
+.file.movable{cursor:grab;}
+.file.dragging{opacity:.45;}
+.file.over{box-shadow:inset 0 2px 0 var(--accent);}
+/* Документ, только что приехавший из приёмной: иначе он теряется среди прочих */
+.file.landed{background:var(--accent-bg);border-radius:8px;}
+.file.over-below{box-shadow:inset 0 -2px 0 var(--accent);}
+.hint-move{padding:0 0 10px;font-size:var(--text-small);}
+.icon-mini{width:34px;height:34px;border:1px solid var(--border);border-radius:var(--radius-s);
+  background:var(--surface);color:var(--text-2);cursor:pointer;line-height:1;
+  transition:all .15s var(--ease);}
+.icon-mini:hover{background:var(--surface-2);color:var(--text);border-color:var(--border-strong);}
+
+/* План перестановки: «было → стало» целиком, до единой правки на диске. */
+.plan{border:1px solid var(--accent);background:var(--accent-bg);border-radius:var(--radius-m);
+  padding:14px 16px;margin-bottom:16px;}
+.plan h3{font-weight:600;margin-bottom:10px;color:var(--text);}
+.plan-row{display:grid;grid-template-columns:minmax(0,1fr) 22px minmax(0,1fr);gap:8px;align-items:baseline;
+  padding:5px 0;overflow-wrap:anywhere;}
+.plan-row .was{color:var(--text-muted);text-decoration:line-through;}
+.plan-row .arrow{color:var(--text-muted);text-align:center;}
+.plan-row .now{color:var(--text);font-weight:500;}
+.plan-acts{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;}
+.file .t{min-width:0;overflow-wrap:anywhere;}
+.file .s{font-size:var(--text-small);color:var(--text-muted);}
+/* Первая строка — имя, под которым файл прислали: видно, из чего вышло название. */
+.file .was-name{overflow-wrap:anywhere;margin-bottom:1px;}
+/* Название правится нажатием по нему — не нужно искать кнопку глазами. */
+.title-btn{display:inline;padding:0;border:none;background:none;font:inherit;color:var(--text);
+  text-align:left;cursor:pointer;border-bottom:1px dashed transparent;}
+.title-btn:hover{border-bottom-color:var(--accent);color:var(--accent);}
+.file .acts{display:flex;gap:4px;align-items:center;flex-shrink:0;flex-wrap:wrap;
+  justify-content:flex-end;}
+/* Приложение к документу: отступом видно, к чему оно относится. */
+.file.sub .num{padding-left:16px;font-weight:600;color:var(--text-muted);}
+.file.sub .t{color:var(--text-2);}
+
+/* «Приёмная»: документы из мессенджера, ещё не разобранные по мероприятиям. */
+.lane{border-left:3px solid var(--accent);margin-bottom:20px;}
+.lane.shut{padding-bottom:14px;}
+/* Плашка, по которой раздел сворачивается. Сколько ждёт разбора — видно и свёрнутой. */
+.lane-head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
+  background:none;border:none;padding:0;cursor:pointer;text-align:left;min-height:44px;}
+/* Заголовок «Приёмной» — та же шапка карточки, что и у всех: base.css решил,
+   что они не ЗАГЛАВНЫМИ. Здесь это не h2, а кнопка, поэтому повторяем вид руками. */
+.lane-title{display:flex;align-items:center;gap:8px;font-weight:600;
+  font-size:var(--text-h2);color:var(--text-2);}
+.lane-head .chevron{color:var(--text-muted);font-weight:400;width:12px;text-transform:none;}
+.lane-count{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;
+  padding:0 7px;border-radius:999px;background:var(--accent);color:var(--accent-ink);
+  font-size:var(--text-small);font-weight:700;letter-spacing:0;}
+.lane-sub{margin:10px 0 6px;}
+.lane-where{white-space:normal;}
+.lane-row .num{color:var(--accent);justify-content:center;}
+.lane-row.copy .num{color:var(--warning);}
+.lane-row .twin{margin-top:3px;color:var(--text-2);}
+.lane-row .twin b{font-weight:600;color:var(--text);}
+
+/* Первичка: то, что прислали, под своими именами. Не корзина — источник пакета. */
+.arch-hint{margin:-6px 0 10px;}
+.file.arch .num{color:var(--success);justify-content:center;}
+.file.arch:not(.used) .t{color:var(--text-2);}
+/* Текстовая кнопка-ссылка. Правило взято из «Повестки» и «Тезисов» без изменений:
+   человек ходит между сервисами пространства и не должен переучиваться. Без него
+   браузер рисует системную серую кнопку с рамкой. */
+.link-btn{background:none;border:none;color:var(--accent);cursor:pointer;padding:2px 4px;border-radius:4px;}
+.link-btn:hover{background:var(--accent-bg);}
+.link-btn.danger-btn{color:var(--danger);}
+.link-btn.danger-btn:hover{background:var(--danger-bg);}
+
+/* Карточка мероприятия в списке слева. */
+.ev .t{font-weight:600;overflow-wrap:anywhere;}
+.ev .s{font-size:var(--text-small);color:var(--text-muted);}
+
+/* Путь папки нужен редко — в окне правки он к месту, на странице занимал строку.
+   На самой странице он остался подсказкой при наведении на название. */
+.folder-path{font-size:var(--text-small);color:var(--text-muted);overflow-wrap:anywhere;
+  margin:-8px 0 14px;}
+.head-row{display:flex;justify-content:space-between;align-items:center;gap:12px 16px;flex-wrap:wrap;margin-bottom:0;}
+.head-row h2{text-transform:none;font-size:var(--text-h1);color:var(--text);margin:0;}
+.head-what{min-width:0;}
+/* Кнопки шапки мельче обычных: их пять, и они не главное на экране */
+.card-acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.card-acts .btn{height:38px;padding:0 12px;}
+.card-acts .link-btn{padding:0 6px;min-height:38px;display:inline-flex;align-items:center;}
+
+@media (max-width:920px){
+  .wrap{padding:16px 12px 56px;}
+  .grid{grid-template-columns:minmax(0,1fr);}
+  .topbar{height:auto;min-height:64px;}
+  .topbar-inner{height:auto;flex-wrap:wrap;gap:8px;padding:8px 16px;}
+  .topbar .actions{flex-wrap:wrap;}
+}
+@media (max-width:640px){
+  .file{grid-template-columns:64px minmax(0,1fr);}
+  .plan-row{grid-template-columns:minmax(0,1fr);}
+  .plan-row .arrow{text-align:left;}
+  .file .acts{grid-column:2;justify-content:flex-start;}
+}
+/* телефон: текстовые кнопки-ссылки тоже должны ловиться пальцем */
+@media (max-width:700px){
+  .link-btn{min-height:44px;display:inline-flex;align-items:center;padding:2px 8px;}
+  /* стрелки — единственный способ менять порядок пальцем: перетаскивание
+     на сенсорном экране не работает, значит, целиться должно быть во что */
+  .icon-mini{width:44px;height:44px;}
+}
+
+/* куда дальше из приёмной: «сказано», «ушло в», кнопки выбора одним нажатием */
+.lane-row .route{margin-top:3px;color:var(--text-2);}
+.lane-row .route a{color:var(--accent);}
+.lane-row .route .chip{padding:1px 6px;border:1px solid var(--accent);border-radius:999px;margin:0 2px;}
+
+/* Word / PDF у документа: прочерк на месте Word, когда из формата его не собрать */
+.file .acts .no-fmt{display:inline-block;min-width:2.5rem;text-align:center;}
+.link-btn:disabled{color:var(--text-muted);cursor:default;background:none;}
+
+/* ── рамка «Совещания» (`/materials/embed/<id>`) ──────────────────────────
+   Одна карточка мероприятия во всю ширину iframe: ни шапки, ни приёмной, ни списка,
+   без внешних отступов страницы. Высоту рамки подгоняет родитель по postMessage. */
+html[data-embed] .topbar,
+html[data-embed] #inbox-lane,
+html[data-embed] .grid > .col:first-child{display:none;}
+html[data-embed] .wrap{max-width:none;margin:0;padding:0;}
+html[data-embed] .grid{display:block;}
+html[data-embed] #workspace{gap:var(--gap-s);}
+html[data-embed] #toasts{right:1rem;}

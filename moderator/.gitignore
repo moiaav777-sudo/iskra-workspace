@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/
+*.db
+*.log
+*.err
+*.pid
+id_*
+*.tar.gz
+._*
+.DS_Store
+.pytest_cache/
+logs/
+VERSION
+.claude/settings.json

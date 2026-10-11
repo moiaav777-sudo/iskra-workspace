@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Инфографика A3</title>
+<link rel="stylesheet" href="/static/base.css">
+<link rel="stylesheet" href="static/library.css">
+<link rel="stylesheet" href="/static/workspace.css">
+<script src="/static/workspace-header.js" data-service="Инфографика A3" defer></script>
+</head>
+<body data-role="{{ROLE}}" data-name="{{NAME}}" data-links="{{LINKS}}">
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/>
+      </svg>
+      Инфографика A3
+    </div>
+    <div class="actions">
+      <button id="blank" type="button">Новый лист</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="drop" id="drop">
+    <h2>Справка → лист A3</h2>
+    <p class="lead">Загрузите справку. «Искра» разберёт её по правилам A3, лист соберётся сам,
+       проверка пройдёт автоматически — вы увидите готовый лист и сможете поправить его руками.</p>
+    <div class="drop-zone" id="zone">
+      <b>Перетащите файл сюда</b>
+      <span>Word, Excel, PowerPoint, PDF, RTF, ODT, текст — до 10 МБ. Справка на сервере не сохраняется.</span>
+      <input type="file" id="file" accept=".docx,.doc,.xlsx,.xls,.pdf,.pptx,.ppt,.rtf,.odt,.txt,.md,.csv" hidden>
+      <div class="drop-actions">
+        <button type="button" id="pick">Выбрать файл</button>
+        <button type="button" class="ghost" id="paste-toggle">Вставить текст</button>
+      </div>
+    </div>
+    <div class="paste" id="paste" hidden>
+      <textarea id="paste-text" rows="8" placeholder="Вставьте сюда текст справки"></textarea>
+      <button type="button" id="paste-go">Собрать лист</button>
+    </div>
+    <div class="progress" id="progress" hidden><span class="dot"></span><span id="progress-text">Читаю справку…</span></div>
+    <div class="error" id="error" hidden></div>
+  </section>
+
+  <section class="list">
+    <div class="list-head">
+      <h2>Листы</h2>
+      <input type="search" id="q" placeholder="Поиск по названию и содержанию">
+      <select id="sort">
+        <option value="updated">Сначала изменённые</option>
+        <option value="created">Сначала новые</option>
+        <option value="title">По названию</option>
+      </select>
+      <label class="check"><input type="checkbox" id="archived"> Архив</label>
+    </div>
+    <div class="scopes" id="scopes"></div>
+    <div id="cards" class="cards"></div>
+    <p class="empty" id="empty" hidden>Пока ни одного листа. Загрузите первую справку.</p>
+  </section>
+</main>
+
+<dialog id="history">
+  <h3>История версий</h3>
+  <div id="history-body"></div>
+  <form method="dialog"><button>Закрыть</button></form>
+</dialog>
+
+<script src="static/library.js"></script>
+</body>
+</html>

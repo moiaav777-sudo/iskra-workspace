@@ -1,0 +1,95 @@
+/* Тема «Искра» — по бренд-листу «Искры» (октябрь 2026): янтарный акцент с чёрным текстом на кнопках,
+   тёплый «бумажный» фон, графитовая тёмная тема, скругления 0,375/0,5 rem, шрифт DM Sans с системным
+   запасным стеком (у DM Sans нет кириллицы — русский текст идёт системным шрифтом, как и предусмотрено
+   стеком бренда). Файл целиком встаёт в portal/static/base.css между маркерами BRAND-TOKENS
+   (portal/ops/apply_brand.sh). */
+:root {
+  --font: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif;
+}
+
+:root {
+  /* фирменные цвета: графит и янтарь */
+  --brand-900: #1D1D1C; --brand-700: #37322F; --brand-200: #FFE29F;
+
+  /* поверхности и границы: тёплая бумага, не чистый белый */
+  --bg: #FBF9F7; --surface: #ffffff; --surface-2: #F6F3F1;
+  --border: #E8E0D9; --border-strong: #D3C8BE;
+
+  /* текст */
+  --text: #171717; --text-2: #3D3D3D; --text-muted: #6E6E6E;
+
+  /* действия: янтарь на светлом только подложкой и кнопкой (чёрный текст на янтаре 8,35:1) */
+  --accent: #F59E0B; --accent-hover: #D97706; --accent-bg: rgba(245,158,11,.14);
+  --link: #AA5C03;
+
+  /* общая шапка: графит, знак белым */
+  --bar-bg: #1D1D1C; --bar-text: #ffffff; --bar-link: #E8E0D9; --bar-muted: #B5AEA7; --bar-dim: #7A7470;
+  --bar-hover: rgba(255,255,255,.12);
+
+  /* состояния */
+  --success: #047857; --success-bg: #E6F4EF;
+  --warning: #AA5C03; --warning-bg: #FFF1CC;
+  --danger: #DC2626; --danger-bg: #FDECEC;
+
+  /* формы: радиусы бренда — кнопки и поля 0,375 rem, карточки 0,5 rem */
+  --radius-s: 6px; --radius-m: 8px; --radius-pill: 999px;
+  --shadow: 0 1px 2px rgba(23,23,23,.05), 0 4px 14px rgba(23,23,23,.06);
+  --shadow-sm: 0 1px 2px rgba(23,23,23,.05);
+  --shadow-md: 0 1px 2px rgba(23,23,23,.05), 0 4px 12px rgba(23,23,23,.06);
+  --ease: cubic-bezier(.16,1,.3,1);
+
+  /* прежние имена сервисов — чтобы не переписывать их правила целиком */
+  --ink: var(--text); --ink-2: var(--text-2); --ink-3: var(--text-muted);
+  --muted: var(--text-muted); --blue: var(--brand-900);
+  --line: var(--border); --line-strong: var(--border-strong);
+  --card: var(--surface); --ground: var(--bg); --sunk: var(--surface-2);
+  --red: var(--danger); --bad: var(--danger); --bad-soft: var(--danger-bg);
+  --ok: var(--success); --ok-soft: var(--success-bg);
+  --accent-ink: #171717; --accent-soft: var(--accent-bg);
+  --radius: var(--radius-m);
+
+  /* жёлтая подсветка «не подтверждено справкой» в «Брифе» — смысл, а не оформление */
+  --mark: #FFE29F; --mark-line: #E2AD32; --warn-ink: var(--warning);
+
+  color-scheme: light;
+}
+
+/* Тёмные значения нужны дважды: для системной темы и для переключателя.
+   Держим их рядом, чтобы не разъехались. Графит #1D1D1C — theme-color сайта «Искры». */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1D1D1C; --surface: #2B2A29; --surface-2: #37322F;
+    --border: #3F3A37; --border-strong: #58524D;
+    --text: #F5F2EF; --text-2: #D6D0CA; --text-muted: #959595;
+    --accent: #E2AD32; --accent-hover: #F4CD74; --accent-bg: rgba(226,173,50,.16);
+    --link: #F4CD74;
+    --bar-bg: #171717; --bar-text: #ffffff; --bar-link: #E8E0D9; --bar-muted: #B5AEA7; --bar-dim: #7A7470;
+    --success: #3DD2A8; --success-bg: rgba(61,210,168,.12);
+    --warning: #F4CD74; --warning-bg: rgba(244,205,116,.12);
+    --danger: #FF4848; --danger-bg: rgba(255,72,72,.12);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.3);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+    --shadow-md: 0 1px 2px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.3);
+    --accent-ink: #171717;
+    --mark: #4A3F12; --mark-line: #8C7A2A;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #1D1D1C; --surface: #2B2A29; --surface-2: #37322F;
+  --border: #3F3A37; --border-strong: #58524D;
+  --text: #F5F2EF; --text-2: #D6D0CA; --text-muted: #959595;
+  --accent: #E2AD32; --accent-hover: #F4CD74; --accent-bg: rgba(226,173,50,.16);
+  --link: #F4CD74;
+  --bar-bg: #171717; --bar-text: #ffffff; --bar-link: #E8E0D9; --bar-muted: #B5AEA7; --bar-dim: #7A7470;
+  --success: #3DD2A8; --success-bg: rgba(61,210,168,.12);
+  --warning: #F4CD74; --warning-bg: rgba(244,205,116,.12);
+  --danger: #FF4848; --danger-bg: rgba(255,72,72,.12);
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.3);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+  --shadow-md: 0 1px 2px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.3);
+  --accent-ink: #171717;
+  --mark: #4A3F12; --mark-line: #8C7A2A;
+  color-scheme: dark;
+}

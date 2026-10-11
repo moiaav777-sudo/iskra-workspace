@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "meeting.schema.json",
+  "title": "Meeting (модератор-бриф)",
+  "description": "Каноническая модель данных совещания. HTML — одно из представлений этой модели.",
+  "type": "object",
+  "required": ["id"],
+  "properties": {
+    "id": { "type": "string", "description": "Ключ совещания (slug)" },
+    "title": { "type": "string" },
+    "subtitle": { "type": "string" },
+    "chair": { "type": "string", "description": "Председатель" },
+    "date": { "type": "string", "description": "Дата в свободной форме" },
+    "location_primary": { "type": "string" },
+    "location_secondary": { "type": "string" },
+    "time_start": { "type": "string", "description": "Напр. 19:00" },
+    "time_end": { "type": "string", "description": "Напр. 20:30" },
+    "agenda": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "num": { "type": "string", "description": "I, II, …" },
+          "title": { "type": "string" },
+          "time": { "type": "string", "description": "19:00 — 19:15" },
+          "speakers": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "role": { "type": "string" },
+          "organization": { "type": "string" },
+          "is_speaker": { "type": "boolean" },
+          "attendance": { "type": "string", "enum": ["in_person", "remote", "unknown"] },
+          "protocol_rank": { "type": "integer" }
+        }
+      }
+    },
+    "orders": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "text": { "type": "string" },
+          "assignee": { "type": "string" },
+          "deadline": { "type": "string" },
+          "agenda_num": { "type": "string" }
+        }
+      }
+    },
+    "scenario": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "section": { "type": "string", "enum": ["opening", "question", "closing"] },
+          "agenda_num": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": ["opening", "intro", "report", "replica", "comment", "question",
+                     "order", "problem", "decision", "task", "reference", "closing"]
+          },
+          "text": { "type": "string" },
+          "speaker": { "type": "string" }
+        }
+      }
+    },
+    "glossary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["term", "definition"],
+        "properties": {
+          "term": { "type": "string" },
+          "definition": { "type": "string" }
+        }
+      }
+    }
+  }
+}

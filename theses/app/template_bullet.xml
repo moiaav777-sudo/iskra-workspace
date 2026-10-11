@@ -1,0 +1,14 @@
+<w:pPr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:pStyle w:val="a9"/>
+  <w:numPr>
+    <w:ilvl w:val="0"/>
+    <w:numId w:val="1"/>
+  </w:numPr>
+  <w:spacing w:after="120" w:line="276" w:lineRule="auto"/>
+  <w:ind w:left="0" w:hanging="567"/>
+  <w:contextualSpacing w:val="0"/>
+  <w:jc w:val="both"/>
+  <w:rPr>
+    <w:sz w:val="32"/>
+  </w:rPr>
+</w:pPr>

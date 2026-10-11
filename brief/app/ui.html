@@ -1,0 +1,2603 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Бриф из справки</title>
+<link rel="stylesheet" href="/static/base.css">
+<link rel="stylesheet" href="vendor/quill.snow.css">
+<style>
+/* Цвета, шрифт и размер основного текста — общие для всего пространства, в /static/base.css
+   (его отдаёт портал): --font, --text-base, --text-h2. Своих здесь нет — контракт п. 5б.
+   Остаются только два документных шрифта, которых в общем наборе нет. */
+:root{
+  --mono:Consolas,"Cascadia Mono","SF Mono",Menlo,monospace;
+  --serif:"Times New Roman",Times,serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+
+header{background:var(--surface);border-bottom:1px solid var(--line)}
+.bar{max-width:1180px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:12px;margin-right:auto;min-width:0}
+.brand h1{margin:0;font-size:1.25rem;font-weight:650;letter-spacing:-.01em;white-space:nowrap}
+.brand span{color:var(--ink-3);font-size:0.8125rem}
+.who{color:var(--ink-3);font-size:0.875rem;white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:999px;font-size:0.8125rem;border:1px solid var(--line);background:var(--sunk);color:var(--ink-2)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ink-3)}
+.chip.ok .dot{background:var(--ok)} .chip.warn .dot{background:#D9A400} .chip.bad .dot{background:var(--bad)}
+@media (max-width:640px){
+  .bar{padding:10px 16px;gap:10px}
+  .brand span{display:none}
+  .brand h1{font-size:1.0625rem}
+  #open-settings{padding:6px 10px;font-size:0.875rem}
+}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);padding:8px 16px;cursor:pointer;text-decoration:none;color:var(--ink);font-weight:550;white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08);color:var(--accent-ink)}
+.btn.outline{border-color:var(--accent);color:var(--accent);font-weight:650}
+.btn.outline:hover{background:var(--accent-soft)}
+.btn.big{padding:13px 26px;font-size:1rem}
+.btn:disabled,.btn[aria-disabled="true"]{opacity:.45;cursor:not-allowed;filter:none}
+.link{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+
+main{max-width:1180px;margin:0 auto;padding-block:24px 48px;padding-inline:24px;display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:900px){main{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:640px){main{padding-inline:16px;padding-block:16px 40px;gap:16px}}
+.col{display:grid;gap:16px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+.step-head{display:flex;align-items:baseline;gap:10px;margin:0 0 12px}
+.step-no{font:600 0.75rem/1 var(--font);color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase}
+.step-head h2{margin:0;font-size:var(--text-h2);font-weight:650}
+
+.banner{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--accent-soft);border:1px solid var(--accent);border-radius:var(--radius);padding:14px 16px}
+.banner p{margin:0;color:var(--ink)}
+
+.kind{display:grid;gap:4px;margin:0 0 14px}
+.kind label{font-size:0.8125rem;font-weight:600;color:var(--ink-2)}
+.kind select{border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px;background:var(--surface);width:100%;font-weight:600}
+.kind small{color:var(--ink-3);font-size:0.75rem}
+.drop{display:grid;place-items:center;text-align:center;gap:6px;min-height:150px;border:2px dashed var(--line-strong);border-radius:var(--radius);background:var(--sunk);padding:20px;cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+body.dropping{outline:3px dashed var(--accent);outline-offset:-6px}
+body.dropping::after{content:"Отпустите файлы — приложу их к заданию";position:fixed;left:50%;top:24px;transform:translateX(-50%);
+  background:var(--accent);color:var(--accent-ink);padding:10px 18px;border-radius:8px;font-size:0.875rem;z-index:20}
+.drop strong{font-size:1rem}
+.drop small{color:var(--ink-3)}
+.inline-err{margin:10px 0 0;padding:10px 12px;border-radius:8px;background:var(--bad-soft);color:var(--bad);font-size:0.875rem}
+#docs{display:grid;gap:8px}
+.doc{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:14px;border:1px solid var(--line);border-radius:var(--radius);background:var(--sunk)}
+.doc-ico{width:38px;height:46px;border-radius:4px;background:var(--surface);border:1px solid var(--line-strong);display:grid;place-items:center;font:700 0.6875rem var(--font);color:var(--accent)}
+.doc-name{font-weight:600;overflow-wrap:anywhere}
+.doc-meta{color:var(--ink-3);font-size:0.8125rem}
+
+.run-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.hint{color:var(--ink-3);font-size:0.8125rem;margin:10px 0 0}
+.hint.bad{color:var(--bad)}
+#a3-state{margin:0}
+details.manual{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+details.manual summary{cursor:pointer;color:var(--ink-2);font-size:0.875rem}
+details.manual ol{margin:10px 0;padding-left:20px;color:var(--ink-2);font-size:0.875rem;display:grid;gap:8px}
+textarea{width:100%;min-height:120px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);padding:10px;font:0.8125rem/1.45 var(--mono);resize:vertical}
+textarea::placeholder{color:var(--ink-3);font-style:italic;opacity:.8}
+
+.empty{color:var(--ink-3);display:grid;gap:14px}
+.empty-how{margin:0;padding-left:20px;display:grid;gap:6px;font-size:0.875rem}
+
+.progress{display:grid;gap:12px}
+.progress-top{display:flex;align-items:center;gap:12px}
+.spinner{width:20px;height:20px;border-radius:50%;border:3px solid var(--accent-soft);border-top-color:var(--accent);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation:none}}
+.timer{margin-left:auto;font:0.8125rem var(--mono);color:var(--ink-3);font-variant-numeric:tabular-nums}
+.log{margin:0;padding:12px 14px;list-style:none;background:var(--sunk);border:1px solid var(--line);border-radius:8px;font:0.8125rem/1.6 var(--font);color:var(--ink-2);max-height:260px;overflow:auto;display:grid;gap:2px}
+.log time{color:var(--ink-3);margin-right:8px;font:0.75rem var(--mono);font-variant-numeric:tabular-nums}
+
+/* результат: полосы одна под другой — заголовок, скачивание, счётчики, действия.
+   Каждая полоса занимает всю ширину панели, внутри полосы блоки равной ширины. */
+.result-head{padding-bottom:14px;border-bottom:1px solid var(--line)}
+.result-head .kicker{font-size:0.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:650}
+.result-head h2{margin:2px 0 0;font-size:1.375rem;letter-spacing:-.01em;text-wrap:balance}
+.result-head p{margin:4px 0 0;color:var(--ink-3);font-size:0.8125rem;overflow-wrap:anywhere}
+/* Кнопки результата: главное действие во всю ширину, два второстепенных — поровну.
+   Флексом они ломались вразнобой, когда колонка узкая: получалось «2 + 1 + плашка». */
+.dl-box{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0 8px}
+.dl-box .btn{width:100%;justify-content:center;min-height:44px}
+.dl-box #dl-docx{grid-column:1 / -1}
+@media (max-width:520px){.dl-box{grid-template-columns:1fr}}
+.state-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px;min-height:26px}
+.state-row .hint{margin:0}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 16px}
+.stat{flex:1 1 170px;display:flex;align-items:baseline;gap:8px;padding:12px 14px;border-radius:8px;
+      border:1px solid var(--line);background:var(--sunk)}
+.stat b{font-size:1.25rem;font-variant-numeric:tabular-nums}
+.stat span{color:var(--ink-2);font-size:0.8125rem}
+.stat.ok{background:var(--ok-soft);border-color:transparent} .stat.ok b{color:var(--ok)}
+.stat.warn{background:var(--mark);border-color:var(--mark-line)} .stat.warn b{color:var(--warn-ink)}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+/* служебные файлы: нужны при разборе, сотруднику аппарата — лишний выбор, поэтому мелкой строкой внизу */
+.service{margin:22px 0 0;padding-top:14px;border-top:1px solid var(--line);color:var(--ink-3);font-size:0.8125rem}
+.service .link{font-size:0.8125rem}
+.section{margin-top:22px}
+.section h3{margin:0 0 8px;font-size:0.875rem;font-weight:650;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em}
+.section p.note{margin:-4px 0 10px;color:var(--ink-3);font-size:0.8125rem}
+.items{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.items li{padding:9px 12px;border-radius:6px;background:var(--sunk);border:1px solid var(--line);font-size:0.875rem}
+.items.warn li{background:var(--mark);border-color:var(--mark-line)}
+.items code{font:0.75rem var(--mono);color:var(--ink-3);display:block;margin-bottom:2px}
+.items q{color:var(--ink-2)}
+.save-state{font-size:0.8125rem;padding:5px 12px;border-radius:999px;background:var(--ok-soft);color:var(--ok)}
+.save-state.busy{background:var(--accent-soft);color:var(--accent)}
+.save-state.bad{background:var(--bad-soft);color:var(--bad)}
+.picks{margin:0 0 14px;padding:0;list-style:none;display:grid;gap:6px}
+.pick{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)}
+.pick.on{border-color:var(--accent);background:var(--accent-soft)}
+.pick input[type=checkbox]{margin-top:6px;width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
+.pick textarea{border:0;background:transparent;min-height:0;padding:3px 0;font:0.875rem/1.45 var(--font);resize:none;overflow:hidden}
+.pick textarea:focus{outline:none;box-shadow:inset 0 -1px 0 var(--accent)}
+.paras{margin:0 0 6px;padding:0;list-style:none;display:grid;gap:4px}
+.para{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.para.manual{border-color:var(--accent);background:var(--accent-soft)}
+.para.gone{opacity:.55}
+.para.gone textarea{text-decoration:line-through}
+.para .kind{margin-top:5px;width:16px;font-size:0.75rem;color:var(--ink-3);text-align:center;cursor:pointer;user-select:none}
+.para.head .rte{font-weight:650}
+.para .rte{min-width:0}
+.para .rte .ql-container.ql-snow{border:0;font:0.875rem/1.45 var(--font)}
+.para .rte .ql-editor{padding:3px 0;min-height:0}
+.para .rte .ql-editor.ql-blank::before{color:var(--ink-3);font-style:normal;left:0}
+.para.gone .rte{text-decoration:line-through}
+.para .ops{display:flex;gap:2px}
+.para .ops button{width:24px;height:24px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--ink-3);cursor:pointer;font-size:0.875rem}
+.para .ops button:hover{background:var(--sunk);color:var(--ink)}
+.para .ops button.bold-on{background:var(--accent-soft);color:var(--accent)}
+.paras-head{display:flex;align-items:baseline;gap:10px;margin:8px 0 6px}
+.paras-head b{font-size:0.8125rem;color:var(--ink-2)}
+.lesson{display:grid;gap:6px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);margin:0 0 6px;font-size:0.875rem}
+.lesson.proposed{border-color:var(--accent);background:var(--accent-soft)}
+.lesson small{color:var(--ink-3);font-size:0.75rem}
+.lesson .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.lesson .btn{padding:4px 12px;font-size:0.8125rem}
+.field2{display:grid;gap:5px;margin:0 0 12px}
+.field2 label{font-size:0.8125rem;font-weight:600;color:var(--ink-2)}
+.field2 label small{font-weight:400;color:var(--ink-3)}
+.field2 textarea{font:0.875rem/1.45 var(--font);min-height:0}
+/* реестр готовых брифов: кварталы-аккордеоны под шагами работы */
+.talk-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px 0;border-top:1px solid var(--line)}
+.talk-row:first-child{border-top:0}
+.talk-row .wide{grid-column:1/-1}
+.talk-row label{display:grid;gap:3px;font-size:0.75rem;color:var(--ink-3)}
+.talk-row input{border:1px solid var(--line-strong);border-radius:8px;padding:7px 9px;background:var(--surface);font-size:0.875rem;color:var(--ink)}
+.talk-row .src{grid-column:1/-1;color:var(--ink-3);font-size:0.75rem}
+.check{grid-column:1/-1;font-size:0.8125rem;border-radius:8px;padding:6px 10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.check.exact{color:var(--ok);padding:0 2px}
+.check.close{background:var(--warning-bg);color:var(--ink);border:1px solid var(--mark-line)}
+.check.unknown,.check.offline{background:var(--sunk);color:var(--ink-2);border:1px solid var(--line)}
+.check .btn{padding:3px 10px;font-size:0.8125rem}
+.registry{padding:14px 16px}
+.registry .step-head{margin:0 0 8px}
+.registry .count{color:var(--ink-3);font-size:0.8125rem}
+.scope{display:flex;gap:0;margin:0 0 8px;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;width:max-content}
+.scope button{border:0;background:var(--surface);padding:4px 12px;font-size:0.8125rem;color:var(--ink-2);cursor:pointer}
+.scope button+button{border-left:1px solid var(--line-strong)}
+.scope button[aria-checked="true"]{background:var(--accent);color:var(--accent-ink)}
+.registry .search{width:100%;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);padding:6px 10px;margin-bottom:8px;font-size:0.875rem}
+.registry .search::placeholder{color:var(--ink-3)}
+.registry .hint{margin:0 0 8px}
+.quarter{border-top:1px solid var(--line)}
+.quarter:last-child{border-bottom:1px solid var(--line)}
+.quarter>summary{display:flex;align-items:baseline;gap:8px;cursor:pointer;padding:7px 2px;font-weight:600;font-size:0.875rem;list-style:none}
+.quarter>summary::-webkit-details-marker{display:none}
+.quarter>summary::before{content:"";align-self:center;width:0;height:0;border:5px solid transparent;border-left-color:var(--ink-3);transition:transform .15s}
+.quarter[open]>summary::before{transform:rotate(90deg)}
+.quarter>summary:hover{color:var(--accent)}
+.quarter>summary .count{margin-left:auto;font-weight:400}
+.quarter .items{display:grid;gap:4px;padding:0 0 8px}
+.quarter button{display:grid;grid-template-columns:1fr auto;gap:0 10px;width:100%;text-align:left;border:1px solid var(--line);background:var(--sunk);border-radius:7px;padding:5px 9px;cursor:pointer;color:var(--ink);font-size:0.875rem;line-height:1.35}
+/* строка реестра — в две строки и не выше: длинное название прячется многоточием,
+   полное видно подсказкой. Разбор 20.09: реестр был выше, чем сами шаги работы. */
+.quarter button>span,.quarter small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quarter button:hover{border-color:var(--accent)}
+.quarter button.active{border-color:var(--accent);background:var(--accent-soft)}
+.quarter .row{display:grid;grid-template-columns:auto 1fr auto;gap:4px;align-items:stretch}
+.quarter .row .pickj{align-self:center;width:16px;height:16px;margin:0 4px 0 2px;accent-color:var(--accent);cursor:pointer}
+.access-list{margin:0;padding:0;list-style:none;display:grid;gap:4px}
+.access-list li{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);font-size:0.875rem}
+.access-list select{font-size:0.8125rem}
+.access-list .x{border:0;background:none;color:var(--ink-3);cursor:pointer;font-size:1rem}
+.access-add{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center}
+.field-label{font-size:0.8125rem;font-weight:600;color:var(--ink-2)}
+.joint-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px;padding:6px 8px;border-radius:8px;background:var(--accent-soft);font-size:0.8125rem}
+.joint-bar .btn{padding:4px 12px;font-size:0.8125rem}
+.joint-bar #joint-count{margin-right:auto}
+.joint-list{margin:0;padding:0;list-style:none;display:grid;gap:6px;counter-reset:q}
+.joint-list li{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);font-size:0.875rem;counter-increment:q}
+.joint-list li::before{content:counter(q) ".";font-weight:650;color:var(--ink-2)}
+.joint-list li small{display:block;color:var(--ink-3);font-size:0.75rem}
+.joint-list .mv{display:flex;gap:4px}
+.joint-list .mv button{width:28px;height:28px;padding:0;border:1px solid var(--line);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--ink-2)}
+.joint-list .mv button:disabled{opacity:.35;cursor:default}
+/* «Объединить брифы» (пользователь 05.10): зона перетаскивания слева, порядок брифов справа */
+#joint-setup{display:grid;gap:14px}
+#joint-dlg.files{width:min(920px,calc(100vw - 32px))}
+.merge-grid{display:grid;gap:14px;align-items:start}
+#joint-dlg.files .merge-grid{grid-template-columns:minmax(0,5fr) minmax(0,7fr)}
+@media (max-width:720px){#joint-dlg.files .merge-grid{grid-template-columns:minmax(0,1fr)}}
+.merge-drop{min-height:200px}
+.merge-drop .link{text-decoration:underline}
+.merge-drop.full{opacity:.5;cursor:not-allowed}
+.merge-side{display:grid;gap:8px;align-content:start;min-width:0}
+.merge-side h3{margin:0;font-size:0.8125rem;font-weight:600;color:var(--ink-2)}
+.merge-side .hint{margin:0}
+.merge-empty{border:1px dashed var(--line);border-radius:8px;padding:14px 12px}
+.joint-list li > div{min-width:0;overflow-wrap:anywhere}
+.joint-list li[draggable="true"]{cursor:grab}
+.joint-list li.dragging{opacity:.45}
+.joint-list li.target{border-color:var(--accent);background:var(--accent-soft)}
+.joint-list .mv button.rm{width:auto;padding:0 8px;font-size:0.75rem}
+.quarter .jrow{grid-template-columns:1fr}
+.quarter .kill{border:1px solid var(--line);background:var(--sunk);border-radius:7px;width:28px;padding:0;color:var(--ink-3);
+               font-size:1rem;line-height:1;cursor:pointer;display:grid;place-items:center}
+/* крестик не мозолит глаза: там, где есть наведение, он появляется на строке (с клавиатуры — всегда) */
+@media (hover:hover){.quarter .kill{opacity:0;transition:opacity .12s}
+  .quarter .row:hover .kill,.quarter .kill:focus-visible{opacity:1}}
+.quarter .kill:hover{border-color:var(--bad);color:var(--bad);background:var(--bad-soft)}
+.quarter .gone{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:8px 10px;border:1px dashed var(--line-strong);
+               border-radius:8px;background:var(--sunk);font-size:0.875rem}
+.quarter .gone small{grid-column:1}
+.quarter .gone .acts{grid-row:1/3;grid-column:2;align-self:center;display:flex;gap:6px}
+.quarter .gone .acts button{width:auto;padding:4px 10px;font-size:0.8125rem;display:inline-flex}
+.quarter .gone .acts .danger{border-color:var(--bad);color:var(--bad)}
+.quarter .gone .acts .danger:hover{background:var(--bad-soft)}
+.quarter small{grid-column:1;color:var(--ink-3);font-size:0.75rem}
+.quarter time{grid-row:1/3;grid-column:2;align-self:center;color:var(--ink-3);font-size:0.75rem;white-space:nowrap;font-variant-numeric:tabular-nums}
+.errbox{border:1px solid var(--bad);background:var(--bad-soft);border-radius:var(--radius);padding:16px 18px}
+.errbox h2{margin:0 0 6px;font-size:1.0625rem;color:var(--bad)}
+.errbox p{margin:0 0 14px;white-space:pre-wrap}
+
+dialog{border:1px solid var(--line);border-radius:12px;padding:0;background:var(--surface);color:var(--ink);width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 32px)}
+dialog::backdrop{background:rgba(10,20,25,.45)}
+.dlg{padding:22px;display:grid;gap:14px;overflow:auto}
+.dlg h2{margin:0;font-size:1.1875rem}
+.dlg p.lead{margin:0;color:var(--ink-2);font-size:0.875rem}
+.field{display:grid;gap:5px}
+.field label{font-size:0.8125rem;font-weight:600;color:var(--ink-2)}
+.field input,.field select{border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px;background:var(--surface);width:100%}
+.field small{color:var(--ink-3);font-size:0.75rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:560px){.grid2{grid-template-columns:1fr}}
+details.adv summary{cursor:pointer;color:var(--ink-2);font-size:0.875rem}
+details.adv .grid2{margin-top:12px}
+.check{display:flex;gap:8px;align-items:center;font-size:0.875rem}
+.test-out{font-size:0.875rem;padding:10px 12px;border-radius:8px;white-space:pre-wrap}
+.test-out.ok{background:var(--ok-soft);color:var(--ok)} .test-out.bad{background:var(--bad-soft);color:var(--bad)}
+.dlg-foot{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:14px}
+.toasts{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);display:grid;gap:8px;justify-items:center;z-index:10;width:max-content;max-width:calc(100vw - 32px)}
+.toast{background:var(--ink);color:var(--surface);padding:10px 18px;border-radius:8px;font-size:0.875rem;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+</style>
+<link rel="stylesheet" href="/static/workspace.css">
+<script src="/static/workspace-header.js" data-service="Бриф из справки" defer></script>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <!-- название слева, действия справа — как у остальных сервисов (разбор 20.09) -->
+    <div class="brand"><h1>Бриф из справки</h1><span>справка → бриф в Word</span></div>
+    <span class="chip" id="conn"><span class="dot"></span><span id="conn-text">Проверяю настройки…</span></span>
+    <button class="btn" id="open-settings" type="button">Настройки Искры</button>
+    <!-- вход в «Объединить брифы» — рядом с «Новым брифом»: ссылку под списком готовых брифов
+         пользователь не нашёл (05.10), а при пустом реестре её и вовсе не было видно -->
+    <button class="btn outline" id="merge-open" type="button"
+            title="Приложите несколько готовых брифов в Word — они лягут одним документом с оглавлением по вопросам">Объединить брифы</button>
+    <button class="btn outline" id="new-brief" type="button">＋ Новый бриф</button>
+  </div>
+</header>
+
+<main>
+  <div class="col">
+    <div class="banner" id="setup-banner" hidden>
+      <p>Чтобы программа сама обращалась к Искре, вставьте ключ API.</p>
+      <button class="btn primary" type="button" id="setup-btn">Подключить</button>
+    </div>
+
+    <section class="panel" aria-labelledby="s1">
+      <div class="step-head"><span class="step-no">Шаг 1</span><h2 id="s1">Справка</h2></div>
+      <div class="kind">
+        <label for="brief-type">Вид брифа</label>
+        <select id="brief-type"><option value="region">Бриф для региона</option></select>
+        <small id="brief-type-desc">О системе общего образования региона — по сводной справке о развитии региона в сфере образования и науки</small>
+      </div>
+      <label class="drop" id="drop" for="file">
+        <strong id="drop-title">Перетащите справку сюда</strong>
+        <span>или нажмите, чтобы выбрать файл</span>
+        <small id="drop-kinds">Word, Excel, PowerPoint, PDF, RTF, ODT или текст</small>
+      </label>
+      <input type="file" id="file" accept=".docx,.doc,.xlsx,.xls,.pdf,.pptx,.ppt,.rtf,.odt,.txt,.md,.csv" hidden>
+      <p class="inline-err" id="upload-err" role="alert" hidden></p>
+      <div id="docs" hidden></div>
+      <p class="hint" id="intake-hint" hidden></p>
+      <p class="hint" id="docs-add-row" hidden>
+        <button class="link" type="button" id="add-doc">Приложить ещё документ</button>
+        <span id="docs-add-what">— статью, обращение, письмо ведомства</span>
+      </p>
+      <input type="file" id="file-add" accept=".docx,.doc,.xlsx,.xls,.pdf,.pptx,.ppt,.rtf,.odt,.txt,.md,.csv" hidden>
+    </section>
+
+    <section class="panel" aria-labelledby="s2">
+      <div class="step-head"><span class="step-no">Шаг 2</span><h2 id="s2">Обработка</h2></div>
+      <div class="run-row">
+        <button class="btn primary big" type="button" id="run" disabled>Сделать бриф</button>
+      </div>
+      <p class="hint" id="run-hint">Сначала загрузите справку.</p>
+      <details class="manual" id="manual">
+        <summary>Нет доступа к Искре из программы? Сделать через чат</summary>
+        <ol>
+          <li><button class="btn" type="button" id="copy-prompt" disabled>Скопировать запрос для чата</button></li>
+          <li>Вставьте запрос в чат нейросети и дождитесь ответа.</li>
+          <li>Скопируйте ответ целиком и вставьте ниже.</li>
+        </ol>
+        <textarea id="manual-answer" placeholder="Сюда — ответ нейросети целиком"></textarea>
+        <div class="run-row" style="margin-top:10px"><button class="btn" type="button" id="manual-run" disabled>Собрать бриф из ответа</button></div>
+      </details>
+    </section>
+
+    <section class="panel registry" id="recent" aria-labelledby="s4" hidden>
+      <div class="step-head">
+        <h2 id="s4">Готовые брифы</h2>
+        <span class="count" id="recent-count"></span>
+      </div>
+      <div class="scope" id="scope" role="radiogroup" aria-label="Чьи брифы показывать" hidden>
+        <button type="button" role="radio" data-scope="mine">Мои</button>
+        <button type="button" role="radio" data-scope="team">Отдела</button>
+        <button type="button" role="radio" data-scope="all">Все</button>
+      </div>
+      <input class="search" id="recent-search" type="search" autocomplete="off" placeholder="Поиск по региону">
+      <div class="joint-bar" id="joint-bar" hidden>
+        <span id="joint-count"></span>
+        <button class="btn primary" type="button" id="joint-open">Свести в один</button>
+        <button class="link" type="button" id="joint-clear">Сбросить</button>
+      </div>
+      <p class="hint" id="recent-none" hidden>Ничего не нашлось.</p>
+      <div id="recent-list"></div>
+    </section>
+  </div>
+
+  <section class="panel" id="out" aria-live="polite">
+    <div class="empty" id="state-empty">
+      <div class="step-head" style="margin:0"><h2 id="empty-title">Результат</h2></div>
+      <p style="margin:0" id="empty-what">Здесь появится готовый документ Word и отчёт проверки.</p>
+      <ol class="empty-how">
+        <li id="how-1">Приложите документы — слева, шаг 1.</li>
+        <li id="how-2">Нажмите «Сделать бриф» — шаг 2. Обработка идёт 3–5 минут, страницу можно закрыть.</li>
+        <li>Проверьте результат: каждое число сверяется с документом, неподтверждённое подсвечено жёлтым.</li>
+      </ol>
+      <p style="margin:0;font-size:var(--text-small)">Готовые документы остаются в реестре слева и в папке «Результаты».</p>
+    </div>
+
+    <div class="progress" id="state-run" hidden>
+      <div class="progress-top"><div class="spinner" aria-hidden="true"></div><strong id="run-title">Обрабатываю справку</strong><span class="timer" id="timer">0:00</span></div>
+      <ol class="log" id="log"></ol>
+      <div class="run-row"><p class="hint" style="margin:0;flex:1" id="run-note">Обычно 3–5 минут. Страницу можно закрыть — бриф появится в реестре слева.</p><button class="btn" type="button" id="cancel-run">Отменить</button></div>
+    </div>
+
+    <div id="state-done" hidden>
+      <div class="result-head">
+        <div class="kicker" id="done-kind">Бриф для региона</div><h2 id="done-title"></h2><p id="done-sub"></p>
+      </div>
+      <!-- Действия в одну линию и в порядке частоты: скачать → сделать лист → приложить.
+           Состояния не мешаются с кнопками, а идут строкой ниже. -->
+      <div class="dl-box">
+        <a class="btn primary big" id="dl-docx" href="#">Скачать бриф</a>
+        <button class="btn" type="button" id="make-a3" hidden>Создать одностраничник</button>
+        <button class="btn" type="button" id="to-meeting" title="Бриф ляжет в папку совещания — скачивать и прикладывать руками не нужно">Приложить к совещанию</button>
+      </div>
+      <div class="state-row">
+        <span class="save-state" id="dl-state"></span>
+        <span class="hint" id="a3-state" hidden></span>
+        <span class="hint" id="meet-state" hidden></span>
+        <button class="link" type="button" id="access-open" hidden></button>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div class="section" id="sec-bad" hidden><h3 id="bad-head">Сверьте вручную со справкой</h3><p class="note" id="bad-note">Программа не нашла в справке точную цитату этих мест: формулировка могла быть другой, число записано иначе. Это не обязательно ошибка, но стоит сверить глазами — такие места подсвечены в брифе жёлтым.</p><ul class="items warn" id="list-bad"></ul></div>
+      <div class="section" id="sec-cons" hidden><h3>Нестыковки в цифрах</h3><ul class="items" id="list-cons"></ul></div>
+      <div class="section" id="sec-talks" hidden>
+        <h3>Докладчики</h3>
+        <p class="note">Нейросеть взяла ФИО, должность и тему из самих докладов, а каждое ФИО сверено с реестром людей портала. Поправьте, если ошиблась: документ пересоберётся с вашими подписями. Родительный падеж для заголовка «Саммари доклада …» склоняется сам.</p>
+        <p class="check close" id="talks-doubt" hidden></p>
+        <div id="list-talks"></div>
+        <div class="run-row"><button class="btn" type="button" id="talks-save">Пересобрать с этими подписями</button><span class="save-state" id="talks-hint" role="status"></span></div>
+      </div>
+      <div class="section" id="sec-text" hidden>
+        <h3>История и текущий статус</h3>
+        <p class="note">Текст собран из справки по правилам. Поправьте абзац прямо здесь — изменение сразу попадёт в документ. Что вы поправили, программа учтёт в правилах на будущее: разовая правка чисел правилом не станет, а повторяющаяся ошибка стиля или структуры — станет.</p>
+        <div class="paras-head"><b>История</b><button class="link" type="button" data-add="history">+ абзац</button></div>
+        <ul class="paras" id="list-history"></ul>
+        <div class="paras-head"><b>Текущий статус</b><button class="link" type="button" data-add="status">+ абзац</button></div>
+        <ul class="paras" id="list-status"></ul>
+      </div>
+      <div class="section" id="sec-lessons" hidden>
+        <h3>Правила из правок</h3>
+        <p class="note">Из правок абзацев программа выводит предложения к правилам этого вида брифа. Правилом для всех предложение становится только после «Принять»; принятое можно отозвать здесь же.</p>
+        <div id="list-lessons"></div>
+      </div>
+      <div class="section" id="sec-prob">
+        <h3>Проблематика и варианты решения</h3>
+        <p class="note">Отмеченное сразу попадает в бриф — отдельно сохранять не нужно. Текст можно поправить прямо в строке. Пока ничего не выбрано, в брифе стоит «Отсутствует» и «Не требуются».</p>
+        <ul class="picks" id="list-sig"></ul>
+        <div class="field2">
+          <label for="own-problems">Своя формулировка проблемы <small>— каждая с новой строки</small></label>
+          <textarea id="own-problems" rows="2" placeholder="Например: отсутствие финансирования на строительство детского сада"></textarea>
+        </div>
+        <ul class="picks" id="list-sol" hidden></ul>
+        <div class="field2">
+          <label for="solutions">Варианты решения <small>— каждый с новой строки; строка с двоеточием в конце станет вводной</small></label>
+          <textarea id="solutions" rows="3" placeholder="Например: Рекомендовать Правительству региона: …"></textarea>
+        </div>
+        <div class="run-row"><span class="save-state" id="apply-hint" role="status"></span></div>
+      </div>
+      <p class="service" id="service-links">Для разбора:
+        <a class="link" id="dl-report" href="#">отчёт проверки</a> ·
+        <a class="link" id="dl-facts" href="#">извлечённые данные</a> ·
+        <button class="link" type="button" id="open-folder">папка с результатом</button>
+      </p>
+    </div>
+
+    <div class="errbox" id="state-error" hidden>
+      <h2 id="err-title">Бриф не собран</h2>
+      <p id="err-text"></p>
+      <div class="actions">
+        <button class="btn primary" type="button" id="retry">Попробовать ещё раз</button>
+        <button class="btn" type="button" id="back-prev" hidden>Вернуться к прежнему брифу</button>
+        <button class="btn" type="button" id="err-settings" hidden>Настройки Искры</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog id="access-dlg">
+  <form class="dlg" method="dialog" id="access-form">
+    <h2>Доступ к брифу</h2>
+    <p class="lead" id="access-lead"></p>
+    <div class="field"><label for="access-owner">Владелец</label>
+      <select id="access-owner"></select>
+      <small>Владелец отвечает за бриф; передав владение, вы останетесь в списке с доступом «работать».</small></div>
+    <div class="field"><span class="field-label">Кому открыт</span>
+      <ul class="access-list" id="access-list"></ul>
+      <p class="hint" id="access-empty">Пока никому — бриф видит владелец и его руководитель.</p></div>
+    <div class="access-add">
+      <input id="access-find" type="search" list="access-people" placeholder="Сотрудник — начните вводить фамилию" autocomplete="off">
+      <datalist id="access-people"></datalist>
+      <select id="access-level"><option value="view">смотреть</option><option value="edit">работать</option></select>
+      <button class="btn" type="button" id="access-add">Открыть</button>
+    </div>
+    <p class="test-out bad" id="access-err" hidden></p>
+    <div class="dlg-foot">
+      <button class="btn" type="button" id="access-cancel">Закрыть</button>
+      <button class="btn primary" type="button" id="access-save">Сохранить</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="people-dlg">
+  <form class="dlg" method="dialog" id="people-form">
+    <h2 id="people-h">Добавить в реестр людей?</h2>
+    <p class="lead" id="people-lead"></p>
+    <div class="field"><label for="people-name">ФИО</label><input id="people-name" type="text" maxlength="300"></div>
+    <div class="grid2">
+      <div class="field"><label for="people-role">Должность</label><input id="people-role" type="text" maxlength="500"></div>
+      <div class="field"><label for="people-org">Ведомство</label><input id="people-org" type="text" maxlength="500"></div>
+    </div>
+    <p class="test-out bad" id="people-err" hidden></p>
+    <div class="dlg-foot">
+      <button class="btn" type="button" id="people-no">Не добавлять</button>
+      <button class="btn primary" type="button" id="people-yes">Добавить</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="joint-dlg" aria-labelledby="joint-h">
+  <form class="dlg" method="dialog" id="joint-form">
+    <h2 id="joint-h">Свести в один документ</h2>
+    <div id="joint-setup">
+      <p class="lead" id="joint-lead">Брифы лягут подряд в этом порядке, каждый с новой страницы, а в начале — содержание
+        по вопросам. Текст брифов не меняется: к названию вопроса добавится только номер.</p>
+      <div class="merge-grid">
+        <div id="merge-add" hidden>
+          <label class="drop merge-drop" id="merge-drop" for="merge-input" tabindex="0" role="button"
+                 aria-describedby="merge-kinds">
+            <strong>Перетащите файлы брифов сюда</strong>
+            <span>или <span class="link">выберите</span> на компьютере</span>
+            <small id="merge-kinds">Брифы в Word (.docx), можно сразу несколько</small>
+          </label>
+          <input type="file" id="merge-input" accept=".docx" multiple hidden>
+        </div>
+        <div class="merge-side">
+          <h3 id="joint-order-h">Порядок в документе</h3>
+          <p class="hint merge-empty" id="merge-empty" hidden>Пока ничего не приложено. Брифы встанут здесь
+            по порядку: верхний будет первым. Порядок меняется стрелками или перетаскиванием.</p>
+          <ol class="joint-list" id="joint-list" aria-labelledby="joint-order-h"></ol>
+          <p class="hint" id="merge-note" hidden></p>
+        </div>
+      </div>
+      <div class="field"><label for="joint-title">Заголовок документа</label>
+        <input id="joint-title" type="text" maxlength="200" placeholder="Бриф к совещанию"></div>
+    </div>
+    <div id="joint-done" hidden>
+      <p class="lead" id="joint-summary"></p>
+      <ol class="joint-list" id="joint-questions"></ol>
+      <p class="hint" id="joint-meet" hidden></p>
+    </div>
+    <p class="test-out bad" id="joint-err" hidden></p>
+    <div class="dlg-foot">
+      <button class="btn" type="button" id="joint-cancel">Закрыть</button>
+      <button class="btn" type="button" id="joint-meeting" hidden>Приложить к совещанию</button>
+      <a class="btn primary" id="joint-dl" href="#" hidden>Скачать</a>
+      <button class="btn primary" type="button" id="joint-go">Собрать</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="meet-dlg">
+  <form class="dlg" method="dialog" id="meet-form">
+    <h2>Приложить к совещанию</h2>
+    <p class="lead" id="meet-lead">Совещание ведёт сервис «Совещание»: выберите его из списка или заведите новое.
+      Готовый бриф ляжет в папку совещания: номер и имя ему дадут «Материалы», прежняя редакция
+      уедет у них в «Архив».</p>
+    <div class="field">
+      <label for="meet-pick">Совещание</label>
+      <select id="meet-pick"><option value="">＋ Новое совещание</option></select>
+      <small id="meet-full"></small>
+    </div>
+    <div class="grid2" id="meet-new" hidden>
+      <div class="field"><label for="meet-title">Название совещания</label>
+        <input id="meet-title" type="text" placeholder="Например: Совещание по развитию образования"></div>
+      <div class="field"><label for="meet-date">Дата</label>
+        <input id="meet-date" type="text" inputmode="numeric" placeholder="25.09.2026">
+        <small>в виде ДД.ММ.ГГГГ</small></div>
+    </div>
+    <p class="test-out bad" id="meet-err" hidden></p>
+    <div class="dlg-foot">
+      <button class="btn" type="button" id="meet-cancel">Отмена</button>
+      <button class="btn primary" type="button" id="meet-go">Приложить</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg">
+  <form class="dlg" method="dialog" id="settings-form">
+    <h2>Настройки Искры</h2>
+    <div class="field"><label for="f-provider">Нейросеть</label>
+      <select id="f-provider"><option value="iskra">Искра (облако, cloud.iskrabot.ru)</option><option value="openai">Другая — API, совместимый с OpenAI</option></select></div>
+    <p class="lead" id="lead-iskra">Ключ создаётся в кабинете Искры в разделе ключей API (начинается с <code>isk_</code>). Нужны права на чат и фоновые прогоны.</p>
+    <p class="lead" id="lead-openai" hidden>Адрес вида <code>https://…/v1</code>, ключ и модель выдаёт администратор нейросети.</p>
+    <div class="field" id="key-field"><label for="f-key">Ключ API</label><input id="f-key" type="password" autocomplete="off" placeholder="isk_…"><small>Хранится только на компьютере с программой, в файле settings.json.</small></div>
+    <p class="lead" id="key-portal" hidden></p>
+    <div class="grp-openai" hidden>
+      <div class="field"><label for="f-url">Адрес API</label><input id="f-url" type="url" placeholder="https://api.example.ru/v1" autocomplete="off"><small>Программа сама добавит к адресу /chat/completions.</small></div>
+      <div class="field" style="margin-top:14px"><label for="f-model">Модель</label><input id="f-model" type="text" placeholder="название модели" autocomplete="off"></div>
+    </div>
+    <details class="adv">
+      <summary>Дополнительно</summary>
+      <div class="grid2">
+        <div class="field"><label for="f-timeout">Ожидание ответа, сек</label><input id="f-timeout" type="number" min="60" step="60"><small>Искра выполняет фоновую задачу до 15 минут.</small></div>
+        <div class="field grp-iskra"><label for="f-runas">Профиль сотрудника (делегирование)</label><input id="f-runas" type="text" autocomplete="off"><small>Только если ключ с правом run:delegate. Обычно пусто.</small></div>
+        <div class="field grp-iskra"><label for="f-iskra-url">Адрес Искры</label><input id="f-iskra-url" type="url" autocomplete="off"></div>
+        <div class="field grp-openai"><label for="f-max">Лимит длины ответа, токенов</label><input id="f-max" type="number" min="0" step="1000"><small>0 — не передавать</small></div>
+        <div class="field grp-openai"><label for="f-temp">Температура</label><input id="f-temp" type="number" min="0" max="2" step="0.1"></div>
+        <div class="field grp-openai"><label for="f-hdr">Заголовок авторизации</label><input id="f-hdr" type="text"></div>
+        <div class="field grp-openai"><label for="f-prefix">Префикс ключа</label><input id="f-prefix" type="text"><small>Обычно «Bearer». Пусто — ключ без префикса.</small></div>
+        <div class="field"><label for="f-ca">Файл корневого сертификата</label><input id="f-ca" type="text" placeholder="C:\Сертификаты\root.cer"><small>Путь к .cer/.pem, если нужен свой сертификат.</small></div>
+        <div class="field"><label for="f-proxy">Прокси</label><input id="f-proxy" type="text" placeholder="http://proxy:3128"><small>Пусто — как в настройках Windows.</small></div>
+      </div>
+      <div class="field grp-openai" style="margin-top:12px"><label for="f-extra">Дополнительные заголовки (JSON)</label><input id="f-extra" type="text" placeholder='{"X-Project-Id": "…"}'></div>
+      <label class="check grp-iskra" style="margin-top:12px"><input type="checkbox" id="f-structured"> Просить Искру вернуть ответ строго по схеме</label>
+      <label class="check" style="margin-top:12px"><input type="checkbox" id="f-ssl"> Проверять сертификат сервера (отключайте только во внутренней сети)</label>
+    </details>
+    <div class="test-out" id="test-out" hidden></div>
+    <div class="dlg-foot">
+      <button class="btn" type="button" id="test">Проверить подключение</button>
+      <button class="btn" type="button" id="cancel">Отмена</button>
+      <button class="btn primary" type="button" id="save">Сохранить</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="vendor/quill.js"></script>
+<script src="vendor/purify.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const state = { me: { portal: false, is_admin: true }, job: null, settings: null, poll: null, tick: null, started: null, lastMode: "auto", types: [], jobInfo: null, docs: [] };
+const JSON_HEADERS = {"Content-Type": "application/json"};
+const LS_KEY = "brief.currentJob";
+const store = {
+  get(){ try { return localStorage.getItem(LS_KEY); } catch { return null; } },
+  set(v){ try { v ? localStorage.setItem(LS_KEY, v) : localStorage.removeItem(LS_KEY); } catch {} },
+};
+
+function toast(msg, ms = 4000){
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg;
+  $("toasts").appendChild(t); setTimeout(() => t.remove(), ms);
+}
+// портал отвечает на просроченную сессию переходом на /login — уводим туда всю страницу
+function sessionEnded(res){
+  let path = "";
+  try { path = new URL(res.url, location.href).pathname; } catch {}
+  if (!res.redirected || path !== "/login") return false;
+  clearTimeout(state.poll); clearInterval(state.tick);
+  location.href = "/login?next=/brief/";
+  return true;
+}
+async function api(path, opts = {}){
+  let res;
+  try { res = await fetch(path, opts); }
+  catch { throw new Error("Программа не отвечает. Проверьте связь с компьютером, где она запущена, и обновите страницу."); }
+  if (sessionEnded(res)) throw new Error("Сессия закончилась — войдите снова.");
+  let data = {};
+  try { data = await res.json(); } catch {}
+  // ошибка — только по коду ответа: у задания, чей прогон не удался, поле error — это текст
+  // причины, а не отказ сервера (ссылка #job= на такое задание говорила «такого задания нет»)
+  if (!res.ok) { const e = new Error(data.error || `Ошибка ${res.status}`); e.status = res.status; throw e; }
+  return data;
+}
+const post = (path, body) => api(path, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body || {}) });
+function show(which){ for (const s of ["empty","run","done","error"]) $("state-" + s).hidden = s !== which; }
+function fmtBytes(n){ return n > 1048576 ? (n/1048576).toFixed(1) + " МБ" : Math.max(1, Math.round(n/1024)) + " КБ"; }
+function plural(n, one, few, many){ const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? one : (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many); }
+const norm = s => String(s || "").replace(/\s+/g, " ").trim();
+
+/* ---------- вид брифа ---------- */
+async function loadTypes(){
+  try {
+    const r = await api("api/brief-types");
+    state.types = r.items;
+    state.newDefault = r.new_default || r.default;
+    const sel = $("brief-type"); sel.innerHTML = "";
+    for (const t of r.items) { const o = document.createElement("option"); o.value = t.id; o.textContent = t.name; sel.appendChild(o); }
+    sel.value = state.newDefault; syncType();
+  } catch {}
+}
+function currentType(){
+  return (state.jobInfo && state.jobInfo.brief_type) || $("brief-type").value;
+}
+/* Бриф — он, саммари — оно, и сверяется оно с докладами, а не со справкой. Чтобы на экране
+   не оставалось «в брифе» там, где сделано саммари, все такие слова идут через docWord. */
+function isSummary(){ return currentType() === "summary"; }
+function docWord(brief, summary){ return isSummary() ? summary : brief; }
+function syncDocWords(){
+  const w = docWord("бриф", "саммари");
+  $("dl-docx").textContent = "Скачать " + w;
+  $("to-meeting").title = docWord("Бриф ляжет", "Саммари ляжет")
+    + " в папку совещания — скачивать и прикладывать руками не нужно";
+  $("err-title").textContent = docWord("Бриф не собран", "Саммари не собрано");
+  $("back-prev").textContent = "Вернуться к прежнему " + docWord("брифу", "саммари");
+  $("run-note").textContent = `Обычно 3–5 минут. Страницу можно закрыть — ${w} появится в реестре слева.`;
+  $("bad-head").textContent = "Сверьте вручную " + docWord("со справкой", "с докладами");
+  $("bad-note").textContent = `Программа не нашла в ${docWord("справке", "докладах")} точную цитату этих мест — `
+    + `формулировка могла быть другой, число записано иначе. Это не обязательно ошибка, но стоит сверить глазами: `
+    + `такие места подсвечены в ${docWord("брифе", "саммари")} жёлтым.`;
+  $("meet-lead").textContent = "Совещание ведёт сервис «Совещание»: выберите его из списка или заведите новое. "
+    + `${docWord("Готовый бриф", "Готовое саммари")} ляжет в папку совещания: номер и имя ему дадут «Материалы», `
+    + "прежняя редакция уедет у них в «Архив».";
+}
+function manyDocs(){
+  if (state.jobInfo && state.job) return !!state.jobInfo.many_docs;
+  const t = state.types.find(x => x.id === $("brief-type").value);
+  return !!(t && t.many_docs);
+}
+function applyJobType(j){
+  const sel = $("brief-type");
+  if (j && j.brief_type && sel.value !== j.brief_type) sel.value = j.brief_type;
+  sel.disabled = !!(j && j.brief_type);
+  syncType();
+}
+function syncType(){
+  const t = state.types.find(x => x.id === $("brief-type").value);
+  if (t) $("brief-type-desc").textContent = t.description;
+  const summary = currentType() === "summary";
+  $("empty-title").textContent = summary ? "Результат — саммари докладов" : "Результат — бриф";
+  $("empty-what").textContent = summary
+    ? "Здесь появится готовый Word с оглавлением и саммари по каждому докладу, а рядом — отчёт проверки."
+    : "Здесь появится готовый бриф в Word и отчёт проверки.";
+  $("drop-title").textContent = summary ? "Перетащите доклады сюда" : "Перетащите справку сюда";
+  $("how-1").textContent = summary ? "Приложите доклады — по документу на каждого выступающего, слева, шаг 1."
+                                   : "Приложите документы — слева, шаг 1.";
+  $("how-2").textContent = `Нажмите «Сделать ${summary ? "саммари" : "бриф"}» — шаг 2. `
+                           + "Обработка идёт 3–5 минут, страницу можно закрыть.";
+  updateButtons();
+  syncDocWords();
+  $("s1").textContent = currentType() === "summary" ? "Доклады"
+                        : manyDocs() ? "Справка и документы" : "Справка";
+  $("docs-add-row").hidden = !(state.docs.length && manyDocs());
+  $("docs-add-what").textContent = currentType() === "summary"
+    ? "— доклад ещё одного выступающего" : "— статью, обращение, письмо ведомства";
+  $("add-doc").textContent = currentType() === "summary" ? "Приложить ещё доклад" : "Приложить ещё документ";
+  kindsHint();
+}
+$("brief-type").onchange = syncType;
+
+/* ---------- настройки ---------- */
+async function loadSettings(){
+  try { state.settings = await api("api/settings"); }
+  catch { $("conn-text").textContent = "Нет связи с программой"; $("conn").className = "chip bad"; return; }
+  const s = state.settings, name = s.provider === "openai" ? (s.model || "Нейросеть") : "Искра";
+  if (!s.configured) { $("conn").className = "chip"; $("conn-text").textContent = `${name} не подключена`; }
+  else if (s.verified) { $("conn").className = "chip ok"; $("conn-text").textContent = `${name} подключена`; }
+  else { $("conn").className = "chip warn"; $("conn-text").textContent = "Ключ сохранён — проверьте подключение"; }
+  $("setup-banner").hidden = s.configured || !state.me.is_admin;
+  if (s.key_from_portal && state.me.is_admin) {       // ключ не вводится здесь — его задаёт портал
+    $("setup-banner").querySelector("p").textContent =
+      "Искра пока не подключена: ключ задаётся в администрировании портала, во вкладке «Искра».";
+    $("setup-btn").hidden = true;
+  }
+  updateButtons();
+}
+function syncProvider(){
+  const iskra = $("f-provider").value !== "openai";
+  document.querySelectorAll(".grp-openai").forEach(el => el.hidden = iskra);
+  document.querySelectorAll(".grp-iskra").forEach(el => el.hidden = !iskra);
+  $("lead-iskra").hidden = !iskra; $("lead-openai").hidden = iskra;
+  // за порталом ключ «Искры» один на всё пространство и задаётся в администрировании портала
+  const s = state.settings || {}, fromPortal = iskra && !!s.key_from_portal;
+  $("key-field").hidden = fromPortal; $("lead-iskra").hidden = !iskra || fromPortal;
+  $("key-portal").hidden = !fromPortal;
+  $("key-portal").textContent = (s.provider !== "openai" && s.has_key ? `Ключ задан (${s.key_hint}). ` : "Ключ пока не задан. ")
+    + "Ключ «Искры» один на всё пространство — его задаёт администратор портала во вкладке «Искра», сюда он приходит сам.";
+  $("test-out").hidden = true;
+}
+$("f-provider").onchange = syncProvider;
+function fillForm(){
+  const s = state.settings || {};
+  $("f-provider").value = s.provider === "openai" ? "openai" : "iskra";
+  $("f-url").value = s.url || ""; $("f-model").value = s.model || ""; $("f-key").value = "";
+  $("f-key").placeholder = s.has_key ? `сохранён (${s.key_hint}) — оставьте пустым, чтобы не менять` : "isk_…";
+  $("f-timeout").value = s.timeout ?? 900; $("f-max").value = s.max_tokens ?? 16000; $("f-temp").value = s.temperature ?? 0.1;
+  $("f-hdr").value = s.auth_header ?? "Authorization"; $("f-prefix").value = s.auth_prefix ?? "Bearer";
+  $("f-runas").value = s.run_as || ""; $("f-iskra-url").value = s.iskra_url || "https://cloud.iskrabot.ru";
+  $("f-structured").checked = s.structured !== false;
+  $("f-ca").value = s.ca_file || ""; $("f-proxy").value = s.proxy || ""; $("f-extra").value = s.extra_headers || ""; $("f-ssl").checked = s.verify_ssl !== false;
+  syncProvider();
+}
+function formData(){
+  return {
+    provider: $("f-provider").value, run_as: $("f-runas").value.trim(),
+    iskra_url: $("f-iskra-url").value.trim() || "https://cloud.iskrabot.ru", structured: $("f-structured").checked,
+    url: $("f-url").value.trim(), model: $("f-model").value.trim(), api_key: $("f-key").value.trim(),
+    timeout: Number($("f-timeout").value) || 900, max_tokens: Number($("f-max").value) || 0,
+    temperature: $("f-temp").value === "" ? 0.1 : Number($("f-temp").value),
+    auth_header: $("f-hdr").value.trim() || "Authorization", auth_prefix: $("f-prefix").value.trim(),
+    ca_file: $("f-ca").value.trim(), proxy: $("f-proxy").value.trim(), extra_headers: $("f-extra").value.trim(), verify_ssl: $("f-ssl").checked,
+  };
+}
+function openSettings(){ fillForm(); $("dlg").showModal(); }
+$("open-settings").onclick = openSettings; $("setup-btn").onclick = openSettings; $("err-settings").onclick = openSettings;
+$("cancel").onclick = () => $("dlg").close();
+$("save").onclick = async () => {
+  const o = $("test-out");
+  try {
+    state.settings = await post("api/settings", formData());
+    $("dlg").close();
+    await loadSettings();
+    // пробный запрос только если это подключение ещё не проверяли: у Искры он стоит десятки тысяч токенов
+    if (state.settings.configured && !state.settings.verified) {
+      toast("Настройки сохранены — проверяю подключение…");
+      const r = await post("api/test", {}).catch(e => ({ ok: false, error: e.message }));
+      toast(r.ok ? "Подключение работает" : "Подключение не работает: " + r.error, r.ok ? 3000 : 8000);
+      loadSettings();
+    } else {
+      toast("Настройки сохранены");
+    }
+  } catch (e) { o.hidden = false; o.className = "test-out bad"; o.textContent = e.message; }
+};
+$("test").onclick = async () => {
+  const o = $("test-out"), b = $("test");
+  o.hidden = false; o.className = "test-out"; o.textContent = "Отправляю пробный запрос…"; b.disabled = true;
+  try {
+    const r = await post("api/test", formData());
+    if (r.ok) { o.className = "test-out ok"; o.textContent = `Подключение работает (${r.seconds} с). Ответ: «${r.reply}»` + (r.saved ? "" : "\nНажмите «Сохранить», чтобы программа использовала эти настройки."); }
+    else { o.className = "test-out bad"; o.textContent = r.error; }
+    loadSettings();
+  } catch (e) { o.className = "test-out bad"; o.textContent = e.message; }
+  b.disabled = false;
+};
+
+/* ---------- загрузка документов ----------
+   Файлы принимаются на всю страницу, а не только в пунктирную рамку: её легко промахнуть,
+   а когда документ уже приложен, рамки на экране и вовсе нет. */
+const drop = $("drop");
+let dragDepth = 0;
+function dragOn(on){
+  dragDepth = on ? dragDepth + 1 : Math.max(0, dragDepth - 1);
+  document.body.classList.toggle("dropping", dragDepth > 0);
+  drop.classList.toggle("over", dragDepth > 0);
+}
+document.addEventListener("dragenter", e => { if (hasFiles(e) && !modalOpen()) { e.preventDefault(); dragOn(true); } });
+document.addEventListener("dragover", e => { if (hasFiles(e)) e.preventDefault(); });
+document.addEventListener("dragleave", e => { if (hasFiles(e)) dragOn(false); });
+document.addEventListener("drop", e => {
+  e.preventDefault();
+  dragDepth = 0; document.body.classList.remove("dropping"); drop.classList.remove("over");
+  // при открытом окне файл не уходит в справку за его спиной: окно «Объединить брифы» ловит файлы само
+  if (modalOpen()) return;
+  uploadAll([...(e.dataTransfer ? e.dataTransfer.files : [])]);
+});
+function modalOpen(){ return !!document.querySelector("dialog[open]"); }
+function hasFiles(e){ return [...(e.dataTransfer ? e.dataTransfer.types : [])].includes("Files"); }
+$("file").onchange = e => { uploadAll([...e.target.files]); e.target.value = ""; };
+$("add-doc").onclick = () => $("file-add").click();
+$("file-add").onchange = e => { uploadAll([...e.target.files], true); e.target.value = ""; };
+
+/* Куда лечь новому файлу. Раньше при открытом брифе любой файл — перетащенный на страницу или
+   выбранный в поле справки — докладывался в ТЕКУЩЕЕ задание, а «Сделать заново» пересобирало его
+   с проблематикой и вариантами решения прежнего брифа: новый бриф смешивался со старым (21.09).
+   Теперь продолжить задание можно, только пока у него нет готового брифа и вид допускает
+   несколько документов, или явной кнопкой «Приложить ещё документ». Иначе — новый бриф. */
+function continuesJob(explicit){
+  if (!state.job || !manyDocs()) return false;
+  if (explicit) return true;
+  return !hasResult() && !((state.jobInfo || {}).result);
+}
+async function uploadAll(files, explicit){
+  if (!files.length) return;
+  if (!manyDocs() && files.length > 1) {
+    uploadError(`Для этого вида нужен один документ — беру первый, «${files[0].name}».`);
+    files = files.slice(0, 1);
+  }
+  if (!continuesJob(explicit) && state.job) {
+    const type = $("brief-type").value;            // вид оставляем тот, что выбран на экране
+    await newBrief();
+    $("brief-type").value = type; syncType();
+    if (state.job) return;                         // newBrief отказал (идёт обработка) — ничего не грузим
+    toast("Начат новый бриф — прежний остался в реестре слева.", 5000);
+  }
+  for (let i = 0; i < files.length; i++) {
+    // первый файл начинает задание (если его ещё нет), остальные прикладываются к нему
+    const ok = await upload(files[i], i > 0 || continuesJob(explicit), explicit);
+    if (!ok) break;
+  }
+}
+
+function uploadError(msg){ const el = $("upload-err"); el.textContent = msg || ""; el.hidden = !msg; }
+async function upload(file, append, explicit){
+  uploadError("");
+  // типы — те же, что в accept поля (общий модуль docs_common.ACCEPT); формат по содержимому проверит сервер
+  const ext = (String(file.name || "").match(/\.[^.]+$/) || [""])[0].toLowerCase();
+  const accept = (($("file") && $("file").getAttribute("accept")) || "").split(",");
+  if (!accept.includes(ext) && ![".html", ".htm"].includes(ext)) {
+    uploadError(`Файл «${file.name}» не подходит: нужен Word, Excel, PowerPoint, PDF, RTF, ODT или текст.`);
+    return false;
+  }
+  if (isRunning()) { toast("Дождитесь окончания текущей обработки."); return false; }
+  await flushSave();
+  const был = drop.querySelector("strong").textContent;
+  drop.querySelector("strong").textContent = "Загружаю…";
+  try {
+    const headers = { "X-File-Name": encodeURIComponent(file.name),
+                      "X-Brief-Type": encodeURIComponent($("brief-type").value) };
+    if (append && state.job) headers["X-Job-Id"] = state.job;
+    if (append && explicit) headers["X-Append"] = "1";   // к готовому брифу — только явной кнопкой
+    const res = await fetch("api/upload", { method: "POST", body: file, headers })
+      .catch(() => { throw new Error("Программа не отвечает. Проверьте связь и обновите страницу."); });
+    if (sessionEnded(res)) throw new Error("Сессия закончилась — войдите снова.");
+    const r = await res.json().catch(() => ({}));
+    if (!res.ok || r.error) throw new Error(r.error || `Ошибка ${res.status}`);
+    if (!append || r.job_id !== state.job) {       // сервер мог начать новое задание — идём за ним
+      setJob(r.job_id);
+      $("manual-answer").value = "";
+      show("empty");
+    }
+    renderDocs(r.docs || (r.name ? [{ name: r.name, chars: r.chars }] : []),
+               `${r.brief_type_name} · ${fmtBytes(r.size || 0)}`);
+    return true;
+  } catch (e) { uploadError(e.message); return false; }
+  finally {
+    drop.querySelector("strong").textContent = был;
+    updateButtons();
+  }
+}
+function kindsHint(){
+  $("drop-kinds").textContent = "Word, Excel, PowerPoint, PDF, RTF, ODT или текст";
+}
+function renderDocs(docs, firstMeta){
+  state.docs = docs || [];
+  const box = $("docs"); box.innerHTML = "";
+  box.hidden = !state.docs.length;
+  drop.hidden = !!state.docs.length;
+  state.docs.forEach((d, i) => {
+    const row = document.createElement("div"); row.className = "doc";
+    const name = String(d.name || "документ");
+    const ico = document.createElement("div"); ico.className = "doc-ico";
+    ico.textContent = (name.includes(".") ? name.split(".").pop() : "").toUpperCase().slice(0, 4) || "ФАЙЛ";
+    const mid = document.createElement("div");
+    const nm = document.createElement("div"); nm.className = "doc-name"; nm.textContent = name;
+    const mt = document.createElement("div"); mt.className = "doc-meta";
+    const size = d.chars ? `${d.chars.toLocaleString("ru-RU")} знаков` : "";
+    const what = currentType() === "summary" ? `доклад ${i + 1}`
+                 : i === 0 ? (firstMeta || "справка") : "приложенный документ";
+    mt.textContent = [what, size].filter(Boolean).join(" · ");
+    mid.append(nm, mt);
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "link";
+    const first = i === 0 && currentType() !== "summary";
+    btn.textContent = first ? "Другая справка" : "Убрать";
+    btn.onclick = first ? () => $("file").click() : () => removeDoc(name);
+    row.append(ico, mid, btn);
+    box.appendChild(row);
+  });
+  $("docs-add-row").hidden = !(state.docs.length && manyDocs());
+  uploadError("");
+}
+async function removeDoc(name){
+  if (isRunning()) { toast("Дождитесь окончания текущей обработки."); return; }
+  try {
+    const r = await post("api/remove-doc", { job_id: state.job, name });
+    renderDocs(r.docs);
+    toast(`Документ «${name}» убран из задания.`);
+  } catch (e) { toast(e.message, 6000); }
+}
+function setJob(id){
+  if (id !== state.job) { a3stop(); a3say(""); saver.rev = undefined; }   // всё это относилось к прежнему брифу
+  state.job = id; store.set(id); markActiveHistory();
+}
+
+function isRunning(){ return !$("state-run").hidden; }
+function hasResult(){ return !$("state-done").hidden; }
+function updateButtons(){
+  const has = !!state.job, cfg = !!(state.settings && state.settings.configured), busy = isRunning(), done = hasResult();
+  const run = $("run");
+  run.disabled = !has || !cfg || busy;
+  const what = currentType() === "summary" ? "саммари" : "бриф";
+  run.textContent = done ? "Сделать заново" : `Сделать ${what}`;
+  run.classList.toggle("primary", !done); run.classList.toggle("big", !done);
+  $("copy-prompt").disabled = !has;
+  $("manual-run").disabled = !has || busy;
+  $("run-hint").textContent = !has ? (what === "саммари"
+      ? "Сначала приложите доклады — по документу на каждого выступающего."
+      : "Сначала загрузите справку или откройте готовый бриф из реестра слева.") :
+    !cfg ? "Подключите Искру в настройках — или сделайте бриф через чат (ниже)." :
+    busy ? "Идёт обработка…" :
+    done ? (what === "саммари"
+            ? "Саммари готово. «Сделать заново» снова отправит доклады в Искру; ваши подписи докладчиков сохранятся."
+            : "Бриф готов. «Сделать заново» снова отправит справку в Искру; отмеченная проблематика сохранится.") :
+    what === "саммари"
+      ? "Доклады уйдут в Искру, числа будут сверены с самими докладами, затем соберётся документ Word."
+      : "Справка уйдёт в Искру, ответ будет сверен со справкой, затем соберётся документ Word.";
+}
+
+/* ---------- обработка ---------- */
+async function start(mode){
+  if (mode === "auto" && hasResult() &&
+      !confirm("Сделать бриф заново? Справка снова уйдёт в Искру (3–5 минут). Отмеченная проблематика и варианты решения сохранятся.")) return;
+  await flushSave();
+  state.lastMode = mode;
+  try {
+    if (mode === "auto") await post("api/run", { job_id: state.job });
+    else await post("api/manual", { job_id: state.job, answer: $("manual-answer").value });
+  } catch (e) { toast(e.message, 6000); return; }
+  beginRunView(mode === "auto" ? docWord("Обрабатываю справку", "Обрабатываю доклады")
+                              : `Собираю ${docWord("бриф", "саммари")} из ответа`, Date.now());
+  clearTimeout(state.poll); poll();
+}
+function beginRunView(title, startedMs){
+  $("log").innerHTML = ""; $("run-title").textContent = title;
+  show("run"); updateButtons();
+  state.started = startedMs;
+  clearInterval(state.tick); state.tick = setInterval(() => {
+    const s = Math.max(0, Math.floor((Date.now() - state.started) / 1000));
+    $("timer").textContent = `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  }, 500);
+  $("out").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+$("run").onclick = () => start("auto");
+$("cancel-run").onclick = () => post("api/cancel", { job_id: state.job })
+  .then(() => { clearTimeout(state.poll); poll(); }).catch(e => toast(e.message));
+$("manual-run").onclick = () => { if (!$("manual-answer").value.trim()) { toast("Вставьте ответ нейросети."); return; } start("manual"); };
+$("retry").onclick = () => start(state.lastMode);
+$("back-prev").onclick = () => { if (state.jobInfo && state.jobInfo.result) { renderDone(state.jobInfo); updateButtons(); } };
+
+async function poll(){
+  const jid = state.job;
+  let j, res;
+  try { res = await fetch("api/job/" + jid); }
+  catch { state.poll = setTimeout(poll, 3000); return; }            // нет связи — ждём
+  if (sessionEnded(res)) return;
+  try { j = await res.json(); }
+  catch { state.poll = setTimeout(poll, 3000); return; }            // ответ не разобрать — ждём
+  if (jid !== state.job) return;
+  if (!res.ok) {                                                     // задание не найдено
+    clearInterval(state.tick); store.set(null); state.job = null;
+    renderDocs([]);
+    $("err-text").textContent = j.error || "Задание не найдено. Загрузите справку заново.";
+    $("retry").hidden = true; $("back-prev").hidden = true; $("err-settings").hidden = true;
+    show("error"); updateButtons(); return;
+  }
+  state.jobInfo = j;
+  if (j.folder && j.folder !== state.currentFolder) { state.currentFolder = j.folder; markActiveHistory(); }
+  if (j.result) noteRev(j.result.rev);
+  applyJobType(j);                     // вид брифа выбран при загрузке справки и больше не меняется
+  // задание могло быть загружено в прошлый раз или другим человеком — показываем его документы
+  if ((j.docs || []).length && !state.docs.length && j.state !== "done") renderDocs(j.docs);
+  if (j.state === "running" && $("state-run").hidden) beginRunView(docWord("Обрабатываю справку", "Обрабатываю доклады"), (j.started || j.now) * 1000 - (j.now * 1000 - Date.now()));
+  const log = $("log");
+  if (log.children.length !== j.log.length) {
+    log.innerHTML = "";
+    for (const row of j.log) {
+      const li = document.createElement("li"), t = document.createElement("time");
+      const s = Math.max(0, Math.round(row.t - (j.started || row.t)));
+      t.textContent = `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+      li.append(t, document.createTextNode(row.msg)); log.appendChild(li);
+    }
+    log.scrollTop = log.scrollHeight;
+  }
+  showHint(j);
+  if (j.state === "running") { state.poll = setTimeout(poll, 1500); return; }
+  clearInterval(state.tick);
+  if (j.state === "done") { renderDone(j); if (j.log.length && /отменена/.test(j.log[j.log.length - 1].msg)) toast("Обработка отменена — показан прежний бриф."); }
+  else if (j.state === "cancelled") { show("empty"); toast("Обработка отменена."); }
+  else if (j.state === "error") {
+    $("err-text").textContent = j.error;
+    $("retry").hidden = false;
+    $("back-prev").hidden = !j.result;
+    $("err-settings").hidden = !state.me.is_admin || !/ключ|подключ|сертификат|связи|401|403|адрес/i.test(j.error || "");
+    show("error");
+  } else show("empty");
+  updateButtons(); loadHistory();
+}
+
+function li(list, nodes){ const el = document.createElement("li"); el.append(...nodes); list.appendChild(el); }
+function showHint(j){
+  const el = $("intake-hint"), hint = (j && j.hint) || "";
+  el.hidden = !hint;
+  el.textContent = hint ? "Подсказка из «Приёмной»: " + hint : "";
+}
+function renderDone(j){
+  const r = j.result, id = state.job;
+  if ((j.docs || []).length && !state.docs.length) renderDocs(j.docs, `${j.brief_type_name} · готовый документ`);
+  $("done-kind").textContent = r.brief_type_name || j.brief_type_name || "Бриф для региона";
+  $("done-title").textContent = r.region;
+  $("done-sub").textContent = r.docx_name;
+  $("dl-docx").href = `api/file/${id}/docx`; $("dl-report").href = `api/file/${id}/report`; $("dl-facts").href = `api/file/${id}/facts`;
+  const nBad = r.unverified.length, nSig = (r.signals || []).length;
+  $("stats").innerHTML = "";
+  const stat = (cls, n, label) => { const d = document.createElement("div"); d.className = "stat " + cls; const b = document.createElement("b"); b.textContent = n; const s = document.createElement("span"); s.textContent = label; d.append(b, s); $("stats").appendChild(d); };
+  stat("", r.facts_total, `${plural(r.facts_total, "факт сверен", "факта сверено", "фактов сверено")} `
+       + (r.engine === "summary" ? "с докладами" : "со справкой"));
+  stat(nBad ? "warn" : "ok", nBad, nBad ? "нужна сверка глазами" : "расхождений нет");
+  if (r.engine === "summary") {
+    const nT = (r.talks || []).length;
+    stat("", nT, `${plural(nT, "доклад", "доклада", "докладов")} в документе`);
+  } else stat("", nSig, `${plural(nSig, "кандидат", "кандидата", "кандидатов")} в проблематику`);
+  const lb = $("list-bad"); lb.innerHTML = ""; $("sec-bad").hidden = !nBad;
+  for (const b of r.unverified) {
+    const c = document.createElement("code"); c.textContent = b.path;
+    const q = document.createElement("q"); q.textContent = b.quote;
+    li(lb, [c, document.createTextNode(b.why.join("; ") + ". Цитата: "), q]);
+  }
+  const lc = $("list-cons"); lc.innerHTML = ""; $("sec-cons").hidden = !r.consistency.length;
+  for (const x of r.consistency) li(lc, [document.createTextNode(x)]);
+  show("done");
+  const m = j.meeting;
+  if (m) {
+    meetSay(m.filed ? `${docWord("Приложен", "Приложено")} к совещанию «${meetShort(m)}» (${m.date}) —`
+                    : `${docWord("Связан", "Связано")} с совещанием «${meetShort(m)}» (${m.date}), но документ в папку не положен —`,
+            !m.filed, m.url, "открыть совещание", m.title);
+  } else {
+    meetSay("");
+  }
+  renderTalks(r);
+  renderSections(r);
+  renderPicks(r);
+  loadAccessLine();
+  loadLessons();
+}
+
+/* ---------- правила из правок: предложения ждут решения, принятые видны и отзываются ---------- */
+async function loadLessons(){
+  const box = $("sec-lessons"); box.hidden = true;
+  const type = currentType();
+  if (!type || type === "summary" || !state.me.portal) return;
+  let data;
+  try { data = await api(`api/lessons?type=${encodeURIComponent(type)}`); } catch { return; }
+  drawLessons(data);
+}
+function drawLessons(data){
+  const box = $("sec-lessons"), list = $("list-lessons"); list.innerHTML = "";
+  const items = [...(data.proposed || []).map(l => ({ ...l, kind: "proposed" })), ...(data.applied || []).map(l => ({ ...l, kind: "applied" }))];
+  box.hidden = !items.length;
+  for (const l of items) {
+    const el = document.createElement("div"); el.className = "lesson " + l.kind;
+    const text = document.createElement("div"); text.textContent = l.rule || "";
+    const meta = document.createElement("small");
+    const ch = (l.changes || [])[0];
+    meta.textContent = (l.kind === "proposed" ? "Предложено " : "Принято ")
+      + `по правке ${l.who || "—"} (${l.title || ""}, ${when(l.at)})` + (l.why ? ` — ${l.why}` : "")
+      + (ch ? `. Было: «${(ch.was || "—").slice(0, 120)}» → стало: «${(ch.now || "—").slice(0, 120)}»` : "");
+    const row = document.createElement("div"); row.className = "row";
+    const act = (label, decision, cls) => {
+      const b = document.createElement("button"); b.type = "button"; b.className = "btn " + (cls || ""); b.textContent = label;
+      b.onclick = async () => {
+        row.querySelectorAll("button").forEach(x => x.disabled = true);
+        try { drawLessons(await post("api/lessons/decide", { id: l.id, decision })); toast({ accept: "Правило принято", reject: "Предложение отклонено", revoke: "Правило отозвано" }[decision]); }
+        catch (e) { toast(e.message, 6000); row.querySelectorAll("button").forEach(x => x.disabled = false); }
+      };
+      row.appendChild(b);
+    };
+    if (l.kind === "proposed") { act("Принять", "accept", "primary"); act("Не принимать", "reject"); }
+    else act("Отозвать", "revoke");
+    el.append(text, meta, row);
+    list.appendChild(el);
+  }
+}
+
+/* ---------- «История» и «Текущий статус»: абзацы правит человек, правки сохраняются сами ----------
+   Поле абзаца — Quill (как сценарий в «Совещании»), а не голая textarea: обычный редактор с полужирным.
+   Списки и заголовки в этом документе — не формат текста, а вид абзаца целиком («¶ / • / H» слева,
+   как и раньше), поэтому Quill здесь разрешает только «жирный» — остальное решает маркер вида.
+   Курсив в «Истории» и цвет цифр в скобках «Текущего статуса» — правило всего блока (build_brief.py),
+   лишний формат внутри Quill его бы только спутал. */
+const KIND_MARK = { p: "¶", bullet: "•", head: "H" };
+const KIND_NEXT = { p: "bullet", bullet: "head", head: "p" };
+const _PARA_PURIFY_CFG = { ALLOWED_TAGS: ["p", "strong", "b", "br"], ALLOWED_ATTR: [] };
+function _escHtml(s){ return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function _sanitizeParaHtml(html){
+  if (typeof DOMPurify === "undefined" || !DOMPurify.isSupported) {
+    // DOMPurify не загрузился — никакой разметки: только текст (DOMParser не исполняет скрипты)
+    const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+    return _escHtml(doc.body ? doc.body.textContent : "");
+  }
+  return DOMPurify.sanitize(String(html || ""), _PARA_PURIFY_CFG);
+}
+// Содержимое поля на сервер и обратно — «сырой» HTML абзаца без внешнего <p>: обычный текст
+// с экранированными спецсимволами и, если абзац правили, вставками <strong>…</strong> для жирного.
+function _paraRaw(q){
+  let html = _sanitizeParaHtml(q.root.innerHTML);
+  html = html.replace(/<p[^>]*>/gi, "").replace(/<\/p>/gi, " ").replace(/<br\s*\/?>/gi, " ");
+  return html.replace(/\s+/g, " ").trim();
+}
+// text — из «факты.json»: у неправленого абзаца это обычный текст (нужно экранировать перед показом),
+// у правленого — уже «сырой» HTML в нашем формате (пришёл отсюда же, экранировать второй раз нельзя).
+function _setParaQuill(q, text, manual){
+  const html = manual ? _sanitizeParaHtml(text || "") : _escHtml(text || "");
+  if (q.clipboard && q.clipboard.dangerouslyPasteHTML) q.clipboard.dangerouslyPasteHTML("<p>" + html + "</p>");
+  else q.root.innerHTML = "<p>" + html + "</p>";
+}
+function _paraValue(li){
+  if (li._q) return _paraRaw(li._q);
+  const ta = li.querySelector("textarea");                 // фолбэк, если библиотека не загрузилась
+  return ta ? _escHtml(ta.value.trim()) : "";
+}
+function renderSections(r){
+  const sec = r.sections;
+  $("sec-text").hidden = r.engine === "summary" || !sec;
+  if ($("sec-text").hidden) return;
+  for (const name of ["history", "status"]) {
+    const ul = $("list-" + name); ul.innerHTML = "";
+    for (const s of sec[name] || []) addPara(ul, s);
+    if (!(sec[name] || []).length) { const el = document.createElement("li"); el.className = "hint"; el.textContent = "Абзацев нет — добавьте, если нужно."; ul.appendChild(el); }
+  }
+}
+function addPara(ul, s){
+  const li = document.createElement("li"); li.className = "para " + (s.kind || "p");
+  li.dataset.orig = s.orig || ""; li.dataset.kind = s.kind || "p";
+  if (typeof s.i === "number") li.dataset.i = s.i;
+  const kind = document.createElement("span"); kind.className = "kind"; kind.title = "Вид абзаца: обычный, маркер, заголовок";
+  kind.textContent = KIND_MARK[li.dataset.kind];
+  kind.onclick = () => {
+    li.classList.remove(li.dataset.kind); li.dataset.kind = KIND_NEXT[li.dataset.kind]; li.classList.add(li.dataset.kind);
+    kind.textContent = KIND_MARK[li.dataset.kind]; bold.hidden = li.dataset.kind === "head";
+    markPara(li); scheduleSave(0);
+  };
+  const rte = document.createElement("div"); rte.className = "rte";
+  const rteBox = document.createElement("div"); rte.appendChild(rteBox);
+  const ops = document.createElement("div"); ops.className = "ops";
+  const bold = document.createElement("button"); bold.type = "button"; bold.textContent = "Ж";
+  bold.title = "Полужирный"; bold.setAttribute("aria-label", "Полужирный"); bold.hidden = li.dataset.kind === "head";
+  bold.onmousedown = e => e.preventDefault();               // не терять выделение текста при клике по кнопке
+  bold.onclick = () => { if (li._q) li._q.format("bold", !li._q.getFormat().bold); };
+  const del = document.createElement("button"); del.type = "button"; del.textContent = "×"; del.title = "Убрать абзац из документа";
+  del.setAttribute("aria-label", "Убрать абзац");
+  del.onclick = () => {
+    if (!li.dataset.orig) { li.remove(); scheduleSave(0); return; }
+    li.classList.toggle("gone");
+    if (li._q) li._q.enable(!li.classList.contains("gone"));
+    markPara(li); scheduleSave(0);
+  };
+  const back = document.createElement("button"); back.type = "button"; back.className = "back"; back.textContent = "↺";
+  back.title = "Вернуть текст, собранный из справки"; back.setAttribute("aria-label", "Вернуть собранный текст");
+  back.onclick = () => {
+    if (li._q) { _setParaQuill(li._q, li.dataset.orig, false); li._q.enable(true); }
+    li.classList.remove("gone"); markPara(li); scheduleSave(0);
+  };
+  ops.append(bold, del, back);
+  li.append(kind, rte, ops);
+  ul.appendChild(li);
+  if (typeof Quill !== "undefined") {
+    const q = new Quill(rteBox, {
+      formats: ["bold"],
+      modules: { toolbar: false, keyboard: { bindings: { enter: { key: 13, handler: () => {} } } } },
+      placeholder: "Текст абзаца…"
+    });
+    li._q = q;
+    _setParaQuill(q, s.text || "", !!s.manual);
+    if (li.classList.contains("gone")) q.enable(false);
+    q.on("text-change", () => { markPara(li); scheduleSave(); });
+    q.on("selection-change", range => { if (range) bold.classList.toggle("bold-on", !!q.getFormat(range).bold); });
+  } else {
+    // фолбэк, если библиотека не загрузилась — обычное поле без форматирования
+    const ta = document.createElement("textarea"); ta.rows = 1; ta.value = s.text || "";
+    ta.setAttribute("aria-label", "Текст абзаца");
+    ta.oninput = () => { autosize(ta); markPara(li); scheduleSave(); };
+    rteBox.replaceWith(ta);
+    bold.hidden = true;
+  }
+  markPara(li);
+  return li;
+}
+function markPara(li){
+  const back = li.querySelector(".ops .back");
+  const raw = _paraValue(li);
+  const changed = li.classList.contains("gone") || !li.dataset.orig
+    || _paraPlainText(raw) !== li.dataset.orig || /<(strong|b)[ >]/i.test(raw);
+  li.classList.toggle("manual", changed);
+  back.hidden = !li.dataset.orig || !changed;
+}
+function _paraPlainText(raw){
+  const d = document.createElement("div"); d.innerHTML = raw;
+  return (d.textContent || "").trim();
+}
+document.querySelectorAll("[data-add]").forEach(b => b.onclick = () => {
+  const ul = $("list-" + b.dataset.add);
+  const hint = ul.querySelector("li.hint"); if (hint) hint.remove();
+  const li = addPara(ul, { text: "", kind: "p", orig: "" });
+  (li._q ? li._q.root : li.querySelector("textarea")).focus();
+});
+function collectSections(){
+  if ($("sec-text").hidden) return undefined;
+  const out = {};
+  for (const name of ["history", "status"]) {
+    out[name] = [...$("list-" + name).querySelectorAll("li.para")].map(li => {
+      const row = { text: li.classList.contains("gone") ? "" : _paraValue(li),
+                    kind: li.dataset.kind, orig: li.dataset.orig };
+      if (li.dataset.i !== undefined) row.i = Number(li.dataset.i);
+      return row;
+    });
+  }
+  return out;
+}
+
+/* ---------- саммари докладов: подписи докладчиков правит человек ---------- */
+function renderTalks(r){
+  const box = $("list-talks"), talks = r.talks || [];
+  $("sec-talks").hidden = r.engine !== "summary" || !talks.length;
+  $("sec-prob").hidden = r.engine === "summary";          // у саммари своей проблематики нет
+  if ($("sec-talks").hidden) return;
+  box.innerHTML = "";
+  talks.forEach((t, i) => {
+    const row = document.createElement("div"); row.className = "talk-row"; row.dataset.i = i;
+    const field = (key, title, wide) => {
+      const l = document.createElement("label"); if (wide) l.className = "wide";
+      l.append(document.createTextNode(title));
+      const inp = document.createElement("input"); inp.type = "text"; inp.dataset.key = key;
+      inp.value = t[key] || "";
+      l.appendChild(inp); row.appendChild(l);
+      return inp;
+    };
+    const name = field("speaker", `${i + 1}. Докладчик — ФИО`);
+    const gen = field("speaker_gen", "Родительный падеж — склоняется сам, поправьте, если ошибся");
+    // падеж склоняет общее правило на сервере: сменили ФИО — прежний автоматический падеж
+    // стираем, и после пересборки придёт новый; свой, написанный руками, не трогаем
+    if (!t.gen_manual) name.addEventListener("input", () => { if (gen.value === (t.speaker_gen || "")) gen.value = ""; });
+    field("role", "Должность");
+    field("org", "Организация");
+    field("topic", "Тема доклада", true);
+    const note = checkNote(t, i);
+    if (note) row.appendChild(note);
+    if (t.src) { const s = document.createElement("div"); s.className = "src"; s.textContent = "Источник: " + t.src; row.appendChild(s); }
+    box.appendChild(row);
+  });
+  setTimeout(() => maybeAskPeople(r), 0);
+  const doubt = talks.filter(t => (t.check || {}).status === "close").length;
+  $("talks-doubt").hidden = !doubt;
+  $("talks-doubt").textContent = doubt
+    ? `${doubt} ${plural(doubt, "ФИО расходится", "ФИО расходятся", "ФИО расходятся")} с реестром людей — `
+      + "в документе подсвечено жёлтым. Выберите написание, прежде чем прикладывать саммари к совещанию."
+    : "";
+}
+/* Сверка ФИО с реестром людей портала (контракт п. 5а): «похоже на опечатку» в документ не выпускаем,
+   новый человек — предупреждаем и предлагаем добавить. */
+function checkNote(t, i){
+  const c = t.check;
+  if (!c) return null;
+  const el = document.createElement("div"); el.className = "check " + c.status;
+  if (c.status === "exact") {
+    el.textContent = c.added ? "✓ Добавлен в реестр людей" : "✓ Есть в реестре людей";
+    if (t.offer === "differs" && state.me.people) {   // в реестре записан иначе — решает человек
+      el.className = "check unknown";
+      el.textContent = `В реестре людей записан иначе: ${[c.registry_role, c.registry_org].filter(Boolean).join(", ") || "без должности"}. `;
+      const upd = document.createElement("button"); upd.type = "button"; upd.className = "btn";
+      upd.textContent = "Обновить в реестре…";
+      upd.onclick = () => openPeopleDlg(t, i, "differs");
+      el.append(upd);
+    }
+    return el;
+  }
+  if (c.status === "offline") {
+    el.textContent = "Реестр людей не ответил — ФИО не сверено. Проверьте написание сами.";
+    return el;
+  }
+  if (c.status === "close") {
+    el.append(`«${t.speaker}» нет в реестре людей, но есть похожие — почти наверняка опечатка:`);
+    (c.suggest || []).forEach(sg => {
+      const b = document.createElement("button"); b.type = "button"; b.className = "btn";
+      b.textContent = `Заменить на «${sg.name}»`;
+      b.title = [sg.role, sg.organization].filter(Boolean).join(", ") || sg.name;
+      b.onclick = () => replaceSpeaker(i, sg);
+      el.append(" ", b);
+    });
+    return el;
+  }
+  el.append(`«${t.speaker}» нет в реестре людей. Проверьте написание — если всё верно, `);
+  const add = document.createElement("button"); add.type = "button"; add.className = "btn";
+  add.textContent = "Добавить в реестр…";
+  add.hidden = !state.me.people;
+  add.onclick = () => openPeopleDlg(t, i, "new");
+  el.append(add);
+  return el;
+}
+function replaceSpeaker(i, sg){
+  const row = document.querySelector(`#list-talks .talk-row[data-i="${i}"]`);
+  if (!row) return;
+  const set = (k, v) => { const inp = row.querySelector(`input[data-key="${k}"]`); if (inp) inp.value = v; };
+  set("speaker", sg.name);
+  set("speaker_gen", "");                     // падеж склонится заново для верного ФИО
+  const role = row.querySelector('input[data-key="role"]'), org = row.querySelector('input[data-key="org"]');
+  if (role && !role.value.trim() && sg.role) role.value = sg.role;
+  if (org && !org.value.trim() && sg.organization) org.value = sg.organization;
+  $("talks-save").click();                    // пересобираем сразу: замена — одним нажатием
+}
+/* ---------- реестр людей: пишет только человек (контракт п. 5а, решение пользователя 21.09) ----------
+   Разбор нашёл докладчика, которого в реестре нет (new) или который записан там иначе (differs), —
+   спрашиваем окном. «Добавить» уходит из браузера под вошедшим человеком в POST /api/people портала,
+   «Не добавлять» — только запоминается, чтобы не спрашивать снова. Молча в реестр не пишем. */
+const peopleAsked = new Set();
+function personKey(t, i){ return `${state.job}|${i}|${[t.speaker, t.role, t.org].map(norm).join("|")}`; }
+function maybeAskPeople(r){
+  if (!state.me.people || r.engine !== "summary" || document.querySelector("dialog[open]")) return;
+  const talks = r.talks || [];
+  const i = talks.findIndex((t, k) => (t.offer === "new" || t.offer === "differs") && !peopleAsked.has(personKey(t, k)));
+  if (i < 0) return;
+  openPeopleDlg(talks[i], i, talks[i].offer);
+}
+function openPeopleDlg(t, i, kind){
+  peopleAsked.add(personKey(t, i));
+  state.peopleAsk = { t, i };
+  const c = t.check || {};
+  const who = [t.speaker, t.role].filter(Boolean).join(" — ");
+  $("people-h").textContent = `Добавить в реестр: ${who}?`;
+  $("people-lead").textContent = kind === "differs"
+    ? `В реестре людей портала этот человек записан иначе: ${[c.registry_role, c.registry_org].filter(Boolean).join(", ") || "без должности"}. `
+      + "«Добавить» запишет то, что в полях ниже, вместо прежнего."
+    : "Такого человека в реестре людей портала нет. Реестр подсказывает ФИО и должности во всех сервисах — "
+      + "проверьте написание, прежде чем добавлять.";
+  $("people-name").value = t.speaker || ""; $("people-role").value = t.role || ""; $("people-org").value = t.org || "";
+  $("people-err").hidden = true;
+  $("people-dlg").showModal();
+}
+async function answerPeople(decision){
+  const ask = state.peopleAsk;
+  if (!ask) return;
+  const err = m => { $("people-err").textContent = m; $("people-err").hidden = false; };
+  if (decision === "added") {
+    const name = $("people-name").value.trim();
+    if (!name) { err("Нужно ФИО."); return; }
+    const r = (state.jobInfo || {}).result || {};
+    try {
+      const res = await fetch(state.me.people.add, {
+        method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, role: $("people-role").value.trim(), organization: $("people-org").value.trim(),
+                               document: [r.docx_name, ask.t.src].filter(Boolean).join(" · доклад: "), source: "brief" }),
+      });
+      if (!res.ok) { err("Реестр не принял запись: " + await meetError(res)); return; }
+    } catch (e) { err("Нет связи с порталом: " + e.message); return; }
+  }
+  $("people-dlg").close();
+  try {
+    const r = await post("api/people-offer", { job_id: state.job, i: ask.i, decision });
+    const res = { ...((state.jobInfo || {}).result || {}), talks: r.talks };
+    state.jobInfo = { ...(state.jobInfo || {}), result: res };
+    if (decision === "added") toast("Добавлено в реестр людей", 4000);
+    renderTalks(res);                  // покажет и следующего, о ком нужно спросить
+  } catch (e) { toast(e.message, 6000); }
+}
+$("people-yes").onclick = () => answerPeople("added");
+$("people-no").onclick = () => answerPeople("declined");
+function collectTalks(){
+  return [...document.querySelectorAll("#list-talks .talk-row")].map(row => {
+    const out = { i: Number(row.dataset.i) };
+    row.querySelectorAll("input").forEach(inp => { out[inp.dataset.key] = inp.value.trim(); });
+    return out;
+  });
+}
+$("talks-save").onclick = async () => {
+  const btn = $("talks-save"), hint = $("talks-hint");
+  btn.disabled = true; hint.className = "save-state busy"; hint.textContent = "Пересобираю документ…";
+  try {
+    const r = await post("api/rebuild", { job_id: state.job, ...collect(), talks: collectTalks() });
+    state.jobInfo = { ...(state.jobInfo || {}), result: r };
+    saver.rev = r.rev;
+    hint.className = "save-state"; hint.textContent = "✓ Документ пересобран";
+    renderDone({ ...(state.jobInfo || {}), result: r });
+  } catch (e) {
+    hint.className = "save-state bad"; hint.textContent = e.message;
+  }
+  btn.disabled = false;
+};
+
+/* ---------- проблематика: выбор сохраняется в бриф автоматически ---------- */
+function autosize(t){ t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; }
+function autosizeAll(){ document.querySelectorAll("#list-sig textarea, #list-sol textarea").forEach(autosize); }
+let resizeTimer; window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(autosizeAll, 100); });
+
+function renderPicks(r){
+  const ls = $("list-sig"); ls.innerHTML = "";
+  const pool = r.signals || [];
+  const sel = r.selection;
+  const byIndex = new Map();
+  let own;
+  if (sel && Array.isArray(sel.picks)) {
+    sel.picks.forEach(p => byIndex.set(p.i, p.text));
+    own = sel.own || [];
+  } else {                                             // старые брифы: сопоставляем по тексту
+    const rest = [...(r.problems || [])];
+    pool.forEach((text, i) => { const k = rest.findIndex(p => norm(p) === norm(text)); if (k >= 0) { byIndex.set(i, rest[k]); rest.splice(k, 1); } });
+    own = rest;
+  }
+  pool.forEach((text, i) => {
+    const item = document.createElement("li"); item.className = "pick"; item.dataset.i = i;
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = byIndex.has(i);
+    const ta = document.createElement("textarea"); ta.rows = 1; ta.value = byIndex.get(i) ?? text;
+    cb.setAttribute("aria-label", "Внести в проблематику: " + text.slice(0, 80));
+    ta.setAttribute("aria-label", "Текст пункта проблематики");
+    const sync = () => item.classList.toggle("on", cb.checked);
+    cb.onchange = () => { sync(); scheduleSave(0); };
+    ta.oninput = () => { autosize(ta); if (!cb.checked) { cb.checked = true; sync(); } scheduleSave(); };
+    item.append(cb, ta); ls.appendChild(item); sync();
+  });
+  requestAnimationFrame(autosizeAll);
+  if (!pool.length) { const el = document.createElement("li"); el.className = "hint"; el.textContent = "Явных кандидатов не найдено — впишите проблему сами, если она есть."; ls.appendChild(el); }
+  $("own-problems").value = own.join("\n");
+  renderSolPicks(r);
+  saver.saved = saveKey(collect());
+  showSaved(r.problems || [], r.solutions || []);
+}
+function lines(id){ return $(id).value.split("\n").map(s => s.trim()).filter(Boolean); }
+function renderSolPicks(r){
+  const pool = r.solution_signals || [], ls = $("list-sol");
+  ls.innerHTML = ""; ls.hidden = !pool.length;
+  const sel = r.selection, byIndex = new Map();
+  let own;
+  if (sel && Array.isArray(sel.sol_picks)) {
+    sel.sol_picks.forEach(p => byIndex.set(p.i, p.text));
+    own = sel.sol_own || [];
+  } else {                                             // бриф сделан до появления кандидатов — ищем по тексту
+    const rest = [...(r.solutions || [])];
+    pool.forEach((text, i) => { const k = rest.findIndex(x => norm(x) === norm(text)); if (k >= 0) { byIndex.set(i, rest[k]); rest.splice(k, 1); } });
+    own = rest;
+  }
+  pool.forEach((text, i) => {
+    const item = document.createElement("li"); item.className = "pick"; item.dataset.i = i;
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = byIndex.has(i);
+    const ta = document.createElement("textarea"); ta.rows = 1; ta.value = byIndex.get(i) ?? text;
+    cb.setAttribute("aria-label", "Внести в варианты решения: " + text.slice(0, 80));
+    ta.setAttribute("aria-label", "Текст варианта решения");
+    const sync = () => item.classList.toggle("on", cb.checked);
+    cb.onchange = () => { sync(); scheduleSave(0); };
+    ta.oninput = () => { autosize(ta); if (!cb.checked) { cb.checked = true; sync(); } scheduleSave(); };
+    item.append(cb, ta); ls.appendChild(item); sync();
+  });
+  $("solutions").value = own.join("\n");
+}
+
+function collect(){
+  const picks = [...document.querySelectorAll("#list-sig .pick")]
+    .filter(el => el.querySelector("input").checked)
+    .map(el => ({ i: Number(el.dataset.i), text: el.querySelector("textarea").value.trim() }))
+    .filter(p => p.text);
+  const own = lines("own-problems");
+  const solPicks = [...document.querySelectorAll("#list-sol .pick")]
+    .filter(el => el.querySelector("input").checked)
+    .map(el => ({ i: Number(el.dataset.i), text: el.querySelector("textarea").value.trim() }))
+    .filter(p => p.text);
+  const solOwn = lines("solutions");
+  const rev = saver.rev;
+  return { problems: picks.map(p => p.text).concat(own), solutions: solPicks.map(p => p.text).concat(solOwn),
+           selection: { picks, own, sol_picks: solPicks, sol_own: solOwn }, rev, sections: collectSections() };
+}
+function setSaveState(cls, text){ for (const id of ["apply-hint", "dl-state"]) { const el = $(id); el.className = "save-state" + (cls ? " " + cls : ""); el.textContent = text; } }
+function showSaved(problems, solutions){
+  if (isSummary()) {                       // у саммари правится не проблематика, а подписи докладчиков
+    const n = (((state.jobInfo || {}).result || {}).talks || []).length;
+    setSaveState("", n ? `✓ В саммари: ${n} ${plural(n, "доклад", "доклада", "докладов")}` : "");
+    return;
+  }
+  setSaveState("", "✓ В брифе: " +
+    (problems.length ? `${problems.length} ${plural(problems.length, "проблема", "проблемы", "проблем")}` : "проблематика «Отсутствует»") + " · " +
+    (solutions.length ? `${solutions.length} ${plural(solutions.length, "вариант решения", "варианта решения", "вариантов решения")}` : "решения «Не требуются»"));
+}
+
+const saver = { timer: null, saved: "", running: null, rev: undefined };
+function noteRev(v){                      // отметка правки только растёт: ответ опроса не откатит её назад
+  if (typeof v === "number" && (saver.rev === undefined || v > saver.rev)) saver.rev = v;
+}
+function saveKey(d){ return JSON.stringify([d.problems, d.solutions, d.selection, d.sections]); }
+function scheduleSave(delay = 700){
+  clearTimeout(saver.timer);
+  setSaveState("busy", `Вношу изменения в ${docWord("бриф", "саммари")}…`);
+  saver.timer = setTimeout(() => { saver.timer = null; saveNow(); }, delay);
+}
+async function saveNow(){
+  clearTimeout(saver.timer); saver.timer = null;
+  while (saver.running) await saver.running;
+  if (!state.job || !hasResult()) return true;
+  const data = collect(), key = saveKey(data);
+  if (key === saver.saved) { showSaved(data.problems, data.solutions); return true; }
+  const jobAtStart = state.job;
+  setSaveState("busy", `Вношу изменения в ${docWord("бриф", "саммари")}…`);
+  saver.running = (async () => {
+    try {
+      const r = await post("api/rebuild", { job_id: jobAtStart, ...data });
+      if (state.job !== jobAtStart) return true;
+      saver.saved = key;
+      noteRev(r.rev);              // иначе вторая галочка подряд уходит со старой отметкой и получает 409
+      $("done-sub").textContent = r.docx_name;
+      showSaved(r.problems, r.solutions);
+      if (r.sections && data.sections && saveKey(collect()) === key) {   // абзацы после пересборки: свежие orig/i
+        state.jobInfo = { ...(state.jobInfo || {}), result: { ...((state.jobInfo || {}).result || {}), ...r } };
+        renderSections(r); saver.saved = saveKey(collect());
+      }
+      if (r.renamed) toast(`Прежний файл ${docWord("брифа", "саммари")} открыт в Word — обновлённый сохранён рядом под новым именем.`, 8000);
+      return true;
+    } catch (e) { setSaveState("bad", "Не удалось внести изменения: " + e.message); return false; }
+  })();
+  const ok = await saver.running; saver.running = null;
+  if (ok && hasResult() && saveKey(collect()) !== saver.saved) return saveNow();
+  return ok;
+}
+["own-problems", "solutions"].forEach(id => $(id).addEventListener("input", () => scheduleSave()));
+function isDirty(){ return !!(state.job && hasResult() && (saver.timer || saver.running || saveKey(collect()) !== saver.saved)); }
+async function flushSave(){ if (isDirty()) await saveNow(); }
+
+// закрыли или обновили страницу во время ввода — дописываем изменения фоновым запросом
+window.addEventListener("pagehide", () => {
+  if (!isDirty()) return;
+  try { navigator.sendBeacon("api/rebuild", new Blob([JSON.stringify({ job_id: state.job, ...collect() })], { type: "application/json" })); } catch {}
+});
+window.addEventListener("beforeunload", e => { if (saver.running) { e.preventDefault(); e.returnValue = ""; } });
+
+// скачивание: сначала дожидаемся сохранения, чтобы в файле было ровно то, что на экране
+for (const id of ["dl-docx", "dl-report", "dl-facts"]) {
+  $(id).addEventListener("click", async e => {
+    e.preventDefault();
+    const btn = $(id), href = btn.getAttribute("href");
+    if (!state.job || href === "#" || btn.getAttribute("aria-disabled") === "true") return;
+    const label = btn.textContent;
+    if (isDirty()) {
+      btn.setAttribute("aria-disabled", "true"); btn.textContent = "Сохраняю…";
+      const ok = await saveNow();
+      btn.removeAttribute("aria-disabled"); btn.textContent = label;
+      if (!ok) { toast("Бриф не обновился — попробуйте ещё раз."); return; }
+    }
+    const a = document.createElement("a"); a.href = href + "?v=" + Date.now(); a.rel = "noopener";
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+}
+$("open-folder").onclick = () => post("api/open-folder", { job_id: state.job })
+  .then(() => toast("Папка открыта на компьютере, где работает программа.")).catch(e => toast(e.message));
+
+/* ---------- одностраничник A3 ---------- */
+/* Бриф уходит в соседний сервис «Инфографика A3»: лист собирает он сам, по своим правилам
+   (тот же разбор «Искрой», что и при загрузке справки в A3). Запрос идёт из браузера
+   пользователя, поэтому заголовки входа проставляет портал и общих секретов не появляется. */
+const a3 = { timer: null, deadline: 0 };
+function a3say(text, bad, href){
+  const el = $("a3-state");
+  el.className = "hint" + (bad ? " bad" : "");
+  el.textContent = text || "";
+  el.hidden = !text;
+  if (href) {
+    const a = document.createElement("a");
+    a.href = href; a.target = "_blank"; a.rel = "noopener"; a.textContent = "открыть лист";
+    el.append(" ", a);
+  }
+}
+function a3stop(){ clearTimeout(a3.timer); a3.timer = null; $("make-a3").disabled = false; }
+async function a3problem(r){
+  let d = {};
+  try { d = await r.json(); } catch {}
+  const msg = d.message || d.detail || "";
+  if (r.status === 401 || r.status === 403) return "Нет доступа к сервису «Инфографика A3» — попросите администратора портала открыть его вам.";
+  if (r.status === 404) return "Сервис «Инфографика A3» не отвечает — сообщите администратору портала.";
+  return msg || `Сервис A3 вернул ошибку ${r.status}.`;
+}
+async function makeA3(){
+  const L = state.me.a3;
+  if (!L || !state.job || a3.timer) return;
+  if (stopOnDoubt()) return;
+  const btn = $("make-a3");
+  btn.disabled = true;
+  try {
+    if (isDirty() && !(await saveNow())) { a3say("Бриф не обновился — попробуйте ещё раз.", true); btn.disabled = false; return; }
+    a3say("Отправляю бриф в «Инфографику A3»…");
+    const file = await fetch(`api/file/${state.job}/docx`, { credentials: "same-origin" });
+    if (!file.ok) throw new Error("Не удалось прочитать готовый бриф.");
+    const fd = new FormData();
+    const name = (state.jobInfo && state.jobInfo.result && state.jobInfo.result.docx_name) || "Бриф.docx";
+    fd.append("file", await file.blob(), name);
+    const r = await fetch(L.draft, { method: "POST", body: fd, credentials: "same-origin" });
+    if (!r.ok) { a3say(await a3problem(r), true); btn.disabled = false; return; }
+    const job = await r.json();
+    a3.deadline = Date.now() + 20 * 60 * 1000;
+    a3poll(L, job.id, job.message);
+  } catch (e) {
+    a3say(e.message || "Не удалось отправить бриф в A3.", true);
+    btn.disabled = false;
+  }
+}
+async function a3poll(L, id, message){
+  a3say((message || "«Искра» собирает лист") + "… (обычно 2–4 минуты, страницу можно не ждать)");
+  a3.timer = setTimeout(async () => {
+    a3.timer = null;
+    if (Date.now() > a3.deadline) { a3stop(); a3say("A3 не ответил за 20 минут — посмотрите библиотеку листов.", true); return; }
+    try {
+      const r = await fetch(L.jobs + encodeURIComponent(id), { credentials: "same-origin" });
+      if (!r.ok) { a3stop(); a3say(await a3problem(r), true); return; }
+      const job = await r.json();
+      if (job.status === "done" && job.sheet) {
+        a3stop();
+        const href = L.editor + job.sheet.id;
+        // Раньше писали «готов» и сами открывали вкладку, а лист в этот момент ещё дорисовывался:
+        // проверку вёрстки A3 делает в самом листе, при открытии. Говорим как есть и не уводим без спроса.
+        a3say(`Лист собран: «${job.sheet.title || "лист"}». Проверку вёрстки он доделает при открытии — это ещё минута.`,
+              false, href);
+        return;
+      }
+      if (job.status === "error") { a3stop(); a3say(job.message || "A3 не смог собрать лист.", true); return; }
+      a3poll(L, id, job.message);
+    } catch { a3poll(L, id, message); }     // связь моргнула — продолжаем спрашивать
+  }, 3000);
+}
+$("make-a3").onclick = makeA3;
+
+$("copy-prompt").onclick = async () => {
+  try {
+    const { prompt } = await post("api/prompt", { job_id: state.job });
+    try { await navigator.clipboard.writeText(prompt); }
+    catch { const t = document.createElement("textarea"); t.value = prompt; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }
+    toast("Запрос скопирован — вставьте его в чат нейросети");
+  } catch (e) { toast(e.message); }
+};
+
+/* ---------- реестр готовых брифов ---------- */
+let historyItems = [];
+function pl(n, one, few, many){
+  const t = Math.abs(n) % 10, h = Math.abs(n) % 100;
+  return t === 1 && h !== 11 ? one : (t >= 2 && t <= 4 && (h < 12 || h > 14) ? few : many);
+}
+const ROMAN = ["I", "II", "III", "IV"];
+const openQuarters = new Set();          // раскрытые кварталы: при обновлении списка не схлопываются
+function quarterOf(sec){
+  const d = new Date(sec * 1000);
+  return { key: `${d.getFullYear()}-${Math.floor(d.getMonth() / 3)}`,
+           name: `${ROMAN[Math.floor(d.getMonth() / 3)]} квартал ${d.getFullYear()}` };
+}
+const findable = s => String(s || "").toLowerCase().replace(/ё/g, "е");
+/* ---------- круг показа: мои / отдела / все (ACCESS-SPEC.md, решение пользователя 19.09) ----------
+   Это фильтр показа, а не запрет: «Все» показывает всё пространство, как раньше. Делит сервер
+   (по X-Portal-Team от портала), экран только просит нужный круг и помнит выбор человека. */
+const SCOPE_KEY = "brief.scope";
+const histMeta = { me: "" };
+let scope = (() => { try { return localStorage.getItem(SCOPE_KEY) || "mine"; } catch { return "mine"; } })();
+function syncScope(){
+  const box = $("scope");
+  box.hidden = !histMeta.me;                        // вне портала людей нет — показываем всё
+  box.querySelectorAll("button").forEach(b => b.setAttribute("aria-checked", String(b.dataset.scope === scope)));
+}
+$("scope").querySelectorAll("button").forEach(b => b.onclick = () => {
+  scope = b.dataset.scope;
+  try { localStorage.setItem(SCOPE_KEY, scope); } catch {}
+  syncScope(); loadHistory();
+});
+
+function matches(it, q){
+  return !q || [it.region, it.brief_type_name, it.author].some(v => findable(v).includes(q));
+}
+let deletedItems = [];
+async function loadHistory(){
+  try {
+    const r = await api(`api/history?scope=${encodeURIComponent(scope)}`);
+    historyItems = r.items; deletedItems = r.deleted || [];
+    histMeta.me = r.me || "";
+    syncScope();
+  } catch { return; }
+  try { jointItems = (await api(`api/joints?scope=${encodeURIComponent(scope)}`)).items || []; } catch { jointItems = []; }
+  // бриф могли удалить — из выбора для сводного он уходит
+  const alive = new Set(historyItems.map(it => it.folder));
+  jointPick = jointPick.filter(f => alive.has(f));
+  renderHistory();
+}
+function when(sec){
+  return new Date(sec * 1000).toLocaleString("ru-RU", {day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"});
+}
+async function removeBrief(it){
+  if (isRunning() && it.folder === state.currentFolder) { toast("Дождитесь окончания обработки."); return; }
+  if (!confirm(`Удалить бриф «${it.region}»?\n\nОн уйдёт в «Удалённые» — оттуда его можно вернуть.`)) return;
+  try {
+    const r = await post("api/delete", { folder: it.folder, scope });
+    historyItems = r.items; deletedItems = r.deleted;
+    if (state.currentFolder === it.folder || (r.jobs || []).includes(state.job)) {
+      await newBrief();                                          // открытый бриф больше не показываем
+    }
+    renderHistory();
+    toast("Бриф удалён — он в разделе «Удалённые»");
+  } catch (e) { toast(e.message, 6000); }
+}
+async function restoreBrief(it){
+  try {
+    const r = await post("api/restore", { folder: it.folder, scope });
+    historyItems = r.items; deletedItems = r.deleted; renderHistory();
+    toast("Бриф возвращён в реестр");
+  } catch (e) { toast(e.message, 6000); }
+}
+async function purgeBrief(it){
+  if (!confirm(`Стереть бриф «${it.region}» навсегда?\n\nФайлы будут удалены с диска. Вернуть его будет нельзя.`)) return;
+  try {
+    const r = await post("api/purge", { folder: it.folder, scope });
+    historyItems = r.items; deletedItems = r.deleted; renderHistory();
+    toast("Бриф стёрт навсегда");
+  } catch (e) { toast(e.message, 6000); }
+}
+function renderHistory(){
+  const box = $("recent-list"); box.innerHTML = "";
+  // за порталом раздел виден всегда: иначе при пустом «Мои» пропал бы и переключатель круга
+  $("recent").hidden = !histMeta.me && !historyItems.length && !deletedItems.length && !jointItems.length;
+  const q = findable($("recent-search").value.trim());
+  const shown = historyItems;
+  const found = shown.filter(it => matches(it, q));
+  $("recent-count").textContent = q
+    ? `найдено ${found.length} из ${shown.length}`
+    : `${shown.length} ${pl(shown.length, "бриф", "брифа", "брифов")}`;
+  $("recent-none").hidden = !!found.length;
+  $("recent-none").textContent = q ? "Ничего не нашлось."
+    : scope === "mine" ? "Своих брифов пока нет — посмотрите «Отдела» или «Все»."
+    : scope === "team" ? "У отдела брифов пока нет — посмотрите «Все»." : "Брифов пока нет.";
+  const groups = new Map();              // квартал → брифы, новые кварталы сверху
+  for (const it of found) {
+    const qt = quarterOf(it.time);
+    if (!groups.has(qt.key)) groups.set(qt.key, { name: qt.name, items: [] });
+    groups.get(qt.key).items.push(it);
+  }
+  const active = state.job ? state.currentFolder : null;
+  let first = true;
+  for (const [key, g] of groups) {
+    const d = document.createElement("details"); d.className = "quarter"; d.dataset.quarter = key;
+    const hasActive = g.items.some(it => it.folder === active);
+    // при поиске раскрываем всё найденное, иначе — что человек открыл сам, текущий бриф и свежий квартал
+    d.open = !!q || openQuarters.has(key) || hasActive || (first && !openQuarters.size);
+    if (d.open && !q) openQuarters.add(key);          // раскрытое поиском не запоминаем
+    d.ontoggle = () => { if (!$("recent-search").value.trim()) d.open ? openQuarters.add(key) : openQuarters.delete(key); };
+    const sum = document.createElement("summary");
+    sum.append(g.name);
+    const n = document.createElement("span"); n.className = "count"; n.textContent = g.items.length;
+    sum.append(n);
+    const list = document.createElement("div"); list.className = "items";
+    for (const it of g.items) {
+      const b = document.createElement("button"); b.type = "button"; b.dataset.folder = it.folder;
+      const s = document.createElement("span"); s.textContent = it.region; s.title = it.region;
+      const k = document.createElement("small");
+      const kind = norm(it.brief_type_name) === norm(it.region) ? "" : it.brief_type_name;
+      k.textContent = [kind, state.me.portal ? it.author : ""].filter(Boolean).join(" · ");
+      const t = document.createElement("time"); t.textContent = new Date(it.time * 1000).toLocaleString("ru-RU", {day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"});
+      b.append(s, t, k);
+      b.onclick = () => openHistory(it);
+      const row = document.createElement("div"); row.className = "row";
+      const pick = document.createElement("input"); pick.type = "checkbox"; pick.className = "pickj";
+      pick.checked = jointPick.includes(it.folder);
+      pick.title = `Отметить для сводного брифа: от ${JOINT_MIN} до ${JOINT_MAX} брифов в один документ`;
+      pick.setAttribute("aria-label", `Отметить «${it.region}» для сводного брифа`);
+      pick.onchange = () => toggleJointPick(it, pick);
+      const kill = document.createElement("button");
+      kill.type = "button"; kill.className = "kill"; kill.textContent = "×";
+      kill.title = "Удалить бриф"; kill.setAttribute("aria-label", `Удалить бриф «${it.region}»`);
+      kill.onclick = () => removeBrief(it);
+      row.append(pick, b, kill);
+      list.appendChild(row);
+    }
+    d.append(sum, list);
+    box.appendChild(d);
+    first = false;
+  }
+  renderJoints(box, q);
+  renderDeleted(box, q);
+  syncJointBar();
+  markActiveHistory();
+}
+/* ---------- сводный бриф: 2–10 брифов из реестра или из файлов одним документом ---------- */
+let jointItems = [], jointPick = [];
+const JOINT_MIN = 2, JOINT_MAX = 10;              // как JOINT_MIN, JOINT_MAX в server.py
+function toggleJointPick(it, box){
+  if (box.checked) {
+    if (jointPick.length >= JOINT_MAX) { box.checked = false; toast(`Свести можно не больше ${JOINT_MAX} брифов.`); return; }
+    jointPick.push(it.folder);
+  } else {
+    jointPick = jointPick.filter(f => f !== it.folder);
+  }
+  syncJointBar();
+}
+function syncJointBar(){
+  const n = jointPick.length;
+  $("joint-bar").hidden = !n;
+  $("joint-count").textContent = n < JOINT_MIN ? `Отмечен 1 бриф — отметьте ещё хотя бы один`
+    : `Отмечено ${n} ${pl(n, "бриф", "брифа", "брифов")}`;
+  $("joint-open").disabled = n < JOINT_MIN;
+}
+$("joint-clear").onclick = () => { jointPick = []; renderHistory(); };
+function renderJoints(box, q){
+  const found = jointItems.filter(j => !q || findable([j.title, ...(j.questions || []).map(x => x.title), j.author].join(" ")).includes(q));
+  if (!found.length) return;
+  const d = document.createElement("details"); d.className = "quarter"; d.dataset.quarter = "joint";
+  d.open = openQuarters.has("joint") || !!q;
+  d.ontoggle = () => { if (!$("recent-search").value.trim()) d.open ? openQuarters.add("joint") : openQuarters.delete("joint"); };
+  const sum = document.createElement("summary");
+  sum.append("Сводные брифы");
+  const n = document.createElement("span"); n.className = "count"; n.textContent = found.length;
+  sum.append(n);
+  const list = document.createElement("div"); list.className = "items";
+  for (const j of found) {
+    const b = document.createElement("button"); b.type = "button";
+    const t = document.createElement("span"); t.textContent = j.title; t.title = j.title;
+    const w = document.createElement("time"); w.textContent = when(j.at);
+    const k = document.createElement("small");
+    const nq = (j.questions || []).length;
+    k.textContent = [`${nq} ${pl(nq, "вопрос", "вопроса", "вопросов")}`, state.me.portal ? j.author : "",
+                     j.meeting && j.meeting.filed ? "в папке совещания" : ""].filter(Boolean).join(" · ");
+    b.append(t, w, k);
+    b.onclick = () => showJoint(j);
+    const row = document.createElement("div"); row.className = "row jrow";
+    row.append(b);
+    list.appendChild(row);
+  }
+  d.append(sum, list);
+  box.appendChild(d);
+}
+function jointSay(text, bad, href, label, full){
+  const el = $("joint-meet");
+  el.className = "hint" + (bad ? " bad" : "");
+  el.textContent = text || ""; el.title = full || ""; el.hidden = !text;
+  if (href) {
+    const a = document.createElement("a");
+    a.href = href; a.target = "_blank"; a.rel = "noopener"; a.textContent = label || "открыть совещание";
+    el.append(" ", a);
+  }
+}
+const JOINT_LEAD = $("joint-lead").textContent.replace(/\s+/g, " ").trim();
+function jointMode(done){
+  $("joint-setup").hidden = done; $("joint-done").hidden = !done;
+  $("joint-go").disabled = false;
+  $("joint-go").hidden = done; $("joint-dl").hidden = !done;
+  $("joint-meeting").hidden = !done || !state.me.meeting;
+  $("joint-err").hidden = true;
+  $("joint-dlg").classList.toggle("files", !done && jointFrom === "files");   // шире: зона файлов и список рядом
+}
+function drawJointList(){
+  const ol = $("joint-list"); ol.innerHTML = "";
+  if (jointFrom === "files") return drawMergeList(ol);
+  jointPick.forEach((folder, i) => {
+    const it = historyItems.find(x => x.folder === folder) || { region: folder };
+    const li = document.createElement("li");
+    const name = document.createElement("div");
+    name.append(it.region);
+    const meta = document.createElement("small"); meta.textContent = [it.brief_type_name, when(it.time)].filter(Boolean).join(" · ");
+    name.append(meta);
+    const mv = document.createElement("div"); mv.className = "mv";
+    const move = (label, aria, delta) => {
+      const btn = document.createElement("button"); btn.type = "button"; btn.textContent = label;
+      btn.setAttribute("aria-label", aria); btn.disabled = !jointPick[i + delta];
+      btn.onclick = () => { [jointPick[i], jointPick[i + delta]] = [jointPick[i + delta], jointPick[i]]; drawJointList(); };
+      mv.append(btn);
+    };
+    move("↑", `Поднять «${it.region}» выше`, -1);
+    move("↓", `Опустить «${it.region}» ниже`, 1);
+    li.append(name, mv);
+    ol.appendChild(li);
+  });
+}
+/* объединение прикреплённых файлов брифов: тот же сводный, только брифы приходят файлами.
+   Вход — кнопка «Объединить брифы» в шапке (#merge-open): ссылку под списком готовых брифов
+   пользователь не нашёл (05.10). Файлы — в зону перетаскивания (или «выберите»), порядок — справа:
+   стрелки, перетаскивание строк мышью, «Убрать». На сервер уходят в порядке списка. */
+const MERGE_FILE_MAX = 15 * 1024 * 1024;          // как MERGE_MAX_BYTES в server.py
+const MERGE_TOTAL_MAX = 40 * 1024 * 1024;         // как MERGE_TOTAL_BYTES в server.py (под 55 МБ nginx)
+const MERGE_LEAD = "Приложите несколько готовых брифов в Word — они лягут одним документом с оглавлением "
+  + "по вопросам. Брифы идут подряд в порядке списка, каждый с новой страницы; порядок меняется стрелками "
+  + "или перетаскиванием. Текст и структура брифов не меняются: к названию вопроса добавится только номер.";
+let jointFrom = "registry", mergeFiles = [], mergeDrag = null;
+function drawMergeList(ol){
+  mergeFiles.forEach((f, i) => {
+    const li = document.createElement("li");
+    li.draggable = true;
+    li.title = "Перетащите, чтобы поменять порядок";
+    const name = document.createElement("div");
+    name.append(f.file.name);
+    // название вопроса сервер читает из файла при сборке — до неё показываем имя файла,
+    // после сборки в списке готового сводного будут названия вопросов
+    const meta = document.createElement("small"); meta.textContent = fmtBytes(f.file.size);
+    name.append(meta);
+    const mv = document.createElement("div"); mv.className = "mv";
+    const move = (label, cls, aria, delta) => {
+      const btn = document.createElement("button"); btn.type = "button"; btn.textContent = label; btn.className = cls;
+      btn.setAttribute("aria-label", aria); btn.disabled = !mergeFiles[i + delta];
+      btn.onclick = () => mergeMove(i, delta);
+      mv.append(btn);
+    };
+    move("↑", "up", `Поднять «${f.file.name}» выше`, -1);
+    move("↓", "down", `Опустить «${f.file.name}» ниже`, 1);
+    const rm = document.createElement("button"); rm.type = "button"; rm.textContent = "Убрать"; rm.className = "rm";
+    rm.setAttribute("aria-label", `Убрать «${f.file.name}»`);
+    rm.onclick = () => mergeRemove(i);
+    mv.append(rm);
+    li.append(name, mv);
+    // перетаскивание строк внутри списка; файлы с компьютера сюда не относятся — их ловит окно
+    li.addEventListener("dragstart", e => {
+      mergeDrag = i; li.classList.add("dragging");
+      try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", f.file.name); } catch {}
+    });
+    li.addEventListener("dragend", () => { mergeDrag = null; li.classList.remove("dragging"); });
+    li.addEventListener("dragover", e => {
+      if (mergeDrag === null || hasFiles(e)) return;
+      e.preventDefault(); e.stopPropagation(); li.classList.add("target");
+    });
+    li.addEventListener("dragleave", () => li.classList.remove("target"));
+    li.addEventListener("drop", e => {
+      if (mergeDrag === null || hasFiles(e)) return;
+      e.preventDefault(); e.stopPropagation();
+      const from = mergeDrag; mergeDrag = null;
+      mergeReorder(from, i);
+    });
+    ol.appendChild(li);
+  });
+  const n = mergeFiles.length;
+  $("merge-empty").hidden = n > 0;
+  $("merge-note").hidden = false;
+  $("merge-note").textContent = n < JOINT_MIN
+    ? `Нужно от ${JOINT_MIN} до ${JOINT_MAX} брифов в Word (.docx)` + (n ? " — приложите ещё хотя бы один." : ".")
+    : `${n} ${pl(n, "бриф", "брифа", "брифов")} из ${JOINT_MAX} возможных` + (n >= JOINT_MAX ? " — больше не поместится." : ".");
+  $("merge-input").disabled = n >= JOINT_MAX;
+  $("merge-drop").classList.toggle("full", n >= JOINT_MAX);
+  $("merge-drop").setAttribute("aria-disabled", String(n >= JOINT_MAX));
+  $("joint-go").disabled = n < JOINT_MIN;
+}
+function mergeFocus(i, cls){
+  const li = $("joint-list").children[i];
+  if (!li) { $("merge-drop").focus(); return; }
+  const b = [li.querySelector("." + cls), li.querySelector(".up"), li.querySelector(".down"), li.querySelector(".rm")]
+    .find(x => x && !x.disabled);
+  if (b) b.focus();
+}
+function mergeMove(i, delta){
+  const j = i + delta;
+  if (!mergeFiles[i] || !mergeFiles[j]) return;
+  [mergeFiles[i], mergeFiles[j]] = [mergeFiles[j], mergeFiles[i]];
+  drawJointList();
+  mergeFocus(j, delta < 0 ? "up" : "down");        // фокус остаётся на той же кнопке у того же брифа
+}
+function mergeReorder(from, to){
+  // бриф, брошенный на строку, встаёт на её место; остальные сдвигаются
+  if (from === to || !mergeFiles[from] || !mergeFiles[to]) { drawJointList(); return; }
+  const [f] = mergeFiles.splice(from, 1);
+  mergeFiles.splice(to, 0, f);
+  drawJointList();
+}
+function mergeRemove(i){
+  if (!mergeFiles[i]) return;
+  mergeFiles.splice(i, 1);
+  drawJointList();
+  mergeFocus(Math.min(i, mergeFiles.length - 1), "rm");
+}
+function addMergeFiles(list){
+  for (const file of list) {
+    if (mergeFiles.length >= JOINT_MAX) { toast(`За один раз объединяется не больше ${JOINT_MAX} брифов.`, 6000); break; }
+    if (!/\.docx$/i.test(file.name)) { toast(`«${file.name}» — не .docx. Объединяются брифы в Word.`, 6000); continue; }
+    if (mergeFiles.some(f => f.file.name === file.name && f.file.size === file.size)) { toast(`«${file.name}» уже в списке.`); continue; }
+    if (file.size > MERGE_FILE_MAX) { toast(`«${file.name}» больше 15 МБ — для брифа это слишком много.`, 6000); continue; }
+    if (mergeFiles.reduce((s, f) => s + f.file.size, 0) + file.size > MERGE_TOTAL_MAX) {
+      toast(`Брифы вместе больше 40 МБ — «${file.name}» не поместится. Объедините их в два приёма.`, 6000); continue;
+    }
+    mergeFiles.push({ file });
+  }
+  drawJointList();
+}
+function mergeTakesFiles(e){
+  return jointFrom === "files" && !$("joint-setup").hidden && hasFiles(e);
+}
+// файлы с компьютера, брошенные в любое место окна, — к брифам; на страницу (в справку) они не проваливаются
+function mergeDragOver(e){
+  if (!hasFiles(e)) return;
+  e.preventDefault(); e.stopPropagation();
+  const ok = mergeTakesFiles(e);
+  try { e.dataTransfer.dropEffect = ok ? "copy" : "none"; } catch {}
+  $("merge-drop").classList.toggle("over", ok);
+}
+function mergeDragLeave(e){
+  const dlg = $("joint-dlg");
+  if (!e.relatedTarget || !dlg.contains(e.relatedTarget)) $("merge-drop").classList.remove("over");
+}
+function mergeDropFiles(e){
+  if (!hasFiles(e)) return;
+  e.preventDefault(); e.stopPropagation();
+  $("merge-drop").classList.remove("over");
+  if (mergeTakesFiles(e)) addMergeFiles([...(e.dataTransfer.files || [])]);
+}
+function openMergeFiles(){
+  jointFrom = "files"; mergeFiles = []; mergeDrag = null;
+  $("joint-h").textContent = "Объединить брифы";
+  $("joint-lead").textContent = MERGE_LEAD;
+  $("merge-kinds").textContent = `Брифы в Word (.docx), можно сразу несколько — от ${JOINT_MIN} до ${JOINT_MAX}`;
+  jointMode(false);
+  $("merge-add").hidden = false;
+  $("joint-go").textContent = "Объединить";
+  drawJointList();
+  $("joint-dlg").showModal();
+  $("merge-drop").focus();
+}
+$("merge-open").onclick = openMergeFiles;
+$("merge-input").onchange = e => { addMergeFiles([...e.target.files]); e.target.value = ""; };
+$("merge-drop").addEventListener("keydown", e => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  e.preventDefault();
+  if (!$("merge-input").disabled) $("merge-input").click();
+});
+$("joint-dlg").addEventListener("dragenter", mergeDragOver);
+$("joint-dlg").addEventListener("dragover", mergeDragOver);
+$("joint-dlg").addEventListener("dragleave", mergeDragLeave);
+$("joint-dlg").addEventListener("drop", mergeDropFiles);
+function fileBase64(file){
+  return new Promise((ok, bad) => {
+    const r = new FileReader();
+    r.onload = () => ok(String(r.result).replace(/^data:[^,]*,/, ""));
+    r.onerror = () => bad(new Error(`Не удалось прочитать «${file.name}».`));
+    r.readAsDataURL(file);
+  });
+}
+function openJointSetup(){
+  if (jointPick.length < JOINT_MIN) return;
+  jointFrom = "registry";
+  $("joint-h").textContent = "Свести в один документ";
+  $("joint-lead").textContent = JOINT_LEAD;
+  $("merge-add").hidden = true; $("merge-empty").hidden = true; $("merge-note").hidden = true;
+  $("joint-go").textContent = "Собрать";
+  jointMode(false);
+  drawJointList();
+  $("joint-dlg").showModal();
+  $("joint-title").focus();
+}
+$("joint-open").onclick = openJointSetup;
+$("joint-go").onclick = async () => {
+  const btn = $("joint-go");
+  btn.disabled = true; btn.textContent = jointFrom === "files" ? "Объединяю…" : "Собираю…";
+  try {
+    const title = $("joint-title").value.trim();
+    let j;
+    if (jointFrom === "files") {
+      const files = [];
+      for (const f of mergeFiles) files.push({ name: f.file.name, data: await fileBase64(f.file) });
+      j = await post("api/joint-files", { files, title });
+      mergeFiles = [];
+    } else {
+      j = await post("api/joint", { folders: jointPick, title });
+      jointPick = [];
+    }
+    await loadHistory();
+    showJoint(j, true);
+    toast("Сводный бриф собран", 4000);
+  } catch (e) {
+    $("joint-err").textContent = e.message; $("joint-err").hidden = false;
+  }
+  btn.disabled = false; btn.textContent = jointFrom === "files" ? "Объединить" : "Собрать";
+};
+function showJoint(j, fresh){
+  state.joint = j;
+  $("joint-h").textContent = j.title;
+  jointMode(true);
+  const nq = (j.questions || []).length;
+  $("joint-summary").textContent = `${fresh ? "Готово: " : ""}${nq} ${pl(nq, "бриф", "брифа", "брифов")} одним документом, `
+    + `в начале — содержание. Файл: ${j.docx_name}.`
+    + (j.unverified ? ` Мест без точной цитаты в справке: ${j.unverified} — подсвечены жёлтым, как и в самих брифах, сверьте их вручную.` : "");
+  const ol = $("joint-questions"); ol.innerHTML = "";
+  (j.questions || []).forEach(q => {
+    const li = document.createElement("li");
+    const name = document.createElement("div"); name.append(q.title);
+    if (q.file) { const f = document.createElement("small"); f.textContent = q.file; name.append(f); }   // из какого файла
+    li.append(name, document.createElement("span"));
+    ol.appendChild(li);
+  });
+  $("joint-dl").href = `api/joint/${j.id}/docx`;
+  $("joint-dl").setAttribute("download", j.docx_name);
+  const m = j.meeting;
+  if (m) jointSay(m.filed ? `Приложен к совещанию «${meetShort(m)}» (${m.date}) —`
+                          : `Связан с совещанием «${meetShort(m)}» (${m.date}), но документ в папку не положен —`,
+                  !m.filed, m.url, "открыть совещание", m.title);
+  else jointSay("");
+  if (!$("joint-dlg").open) $("joint-dlg").showModal();
+}
+function jointTarget(j){
+  return {
+    word: "сводный бриф", done: "Сводный бриф приложен к совещанию",
+    file: `api/joint/${j.id}/docx`, name: j.docx_name, sourceId: j.id,
+    fileSource: true,                   // сводных к совещанию бывает несколько — различаем по id (п. 9)
+    prev: j.meeting || null,
+    bind: async m => { const c = await post(`api/joint/${j.id}/meeting`, m); state.joint = c; j.meeting = c.meeting; loadHistory(); },
+    say: jointSay,
+  };
+}
+$("joint-meeting").onclick = () => {
+  const j = state.joint;
+  if (!j) return;
+  if ((j.doubt || []).length) {       // ФИО, похожее на опечатку, наружу не выпускаем (п. 5а)
+    toast(`В сводном есть ФИО, расходящиеся с реестром людей: ${j.doubt.map(n => "«" + n + "»").join(", ")}. `
+          + "Поправьте их в самих брифах и соберите сводный заново.", 8000);
+    return;
+  }
+  openMeetDialog(jointTarget(j));
+};
+$("joint-cancel").onclick = () => $("joint-dlg").close();
+
+/* ---------- окно «Доступ» (ACCESS-SPEC.md): владелец, кому открыт, передать владение ---------- */
+const acc = { info: null, list: [] };
+function accessLine(info){
+  const n = (info.access || []).length;
+  $("access-open").textContent = `Владелец: ${info.owner_name || "общий бриф"}`
+    + (n ? ` · открыт ${n} ${pl(n, "человеку", "людям", "людям")}` : "") + " · Доступ";
+  $("access-open").hidden = false;
+}
+async function loadAccessLine(){
+  $("access-open").hidden = true;
+  if (!state.me.portal || !state.currentFolder) return;
+  try { acc.info = await api(`api/access?folder=${encodeURIComponent(state.currentFolder)}`); accessLine(acc.info); }
+  catch {}
+}
+function drawAccess(){
+  const info = acc.info, ul = $("access-list"); ul.innerHTML = "";
+  const names = Object.fromEntries((info.people || []).map(p => [p.login, p.name]));
+  acc.list.forEach((a, i) => {
+    const li = document.createElement("li");
+    const who = document.createElement("span"); who.textContent = names[a.login] || a.login;
+    const lv = document.createElement("select");
+    for (const [v, t] of [["view", "смотреть"], ["edit", "работать"]]) { const o = document.createElement("option"); o.value = v; o.textContent = t; lv.appendChild(o); }
+    lv.value = a.level; lv.disabled = !info.can_manage;
+    lv.onchange = () => { a.level = lv.value; };
+    const x = document.createElement("button"); x.type = "button"; x.className = "x"; x.textContent = "×";
+    x.title = "Закрыть доступ"; x.setAttribute("aria-label", `Закрыть доступ: ${who.textContent}`);
+    x.hidden = !info.can_manage;
+    x.onclick = () => { acc.list.splice(i, 1); drawAccess(); };
+    li.append(who, lv, x); ul.appendChild(li);
+  });
+  $("access-empty").hidden = acc.list.length > 0;
+}
+async function openAccess(){
+  $("access-err").hidden = true;
+  try { acc.info = await api(`api/access?folder=${encodeURIComponent(state.currentFolder)}`); }
+  catch (e) { toast(e.message, 6000); return; }
+  const info = acc.info;
+  acc.list = (info.access || []).map(a => ({ login: a.login, level: a.level }));
+  $("access-lead").textContent = `«${info.title}». Это не запрет, а круг показа: у тех, кому открыт бриф, `
+    + "он появится в «Мои»." + (info.can_manage ? "" : " Менять доступ может владелец брифа.");
+  const own = $("access-owner"); own.innerHTML = "";
+  if (!info.owner) { const o = document.createElement("option"); o.value = ""; o.textContent = "— общий бриф, без владельца —"; own.appendChild(o); }
+  for (const p of info.people || []) { const o = document.createElement("option"); o.value = p.login; o.textContent = p.name; own.appendChild(o); }
+  own.value = info.owner || ""; own.disabled = !info.can_manage;
+  const dl = $("access-people"); dl.innerHTML = "";
+  for (const p of info.people || []) { const o = document.createElement("option"); o.value = p.name; o.dataset.login = p.login; dl.appendChild(o); }
+  $("access-find").value = ""; $("access-find").disabled = $("access-add").disabled = $("access-level").disabled = !info.can_manage;
+  $("access-save").hidden = !info.can_manage;
+  drawAccess();
+  $("access-dlg").showModal();
+}
+$("access-add").onclick = () => {
+  const typed = norm($("access-find").value);
+  const p = (acc.info.people || []).find(x => norm(x.name) === typed || x.login === typed);
+  if (!p) { $("access-err").textContent = "Выберите сотрудника из списка."; $("access-err").hidden = false; return; }
+  $("access-err").hidden = true;
+  if (p.login === acc.info.owner) return;
+  const had = acc.list.find(a => a.login === p.login);
+  if (had) had.level = $("access-level").value; else acc.list.push({ login: p.login, level: $("access-level").value });
+  $("access-find").value = "";
+  drawAccess();
+};
+$("access-save").onclick = async () => {
+  const owner = $("access-owner").value;
+  if (owner && owner !== acc.info.owner &&
+      !confirm(`Передать владение брифом: ${$("access-owner").selectedOptions[0].textContent}? Вы останетесь с доступом «работать».`)) return;
+  try {
+    acc.info = await post("api/access", { folder: state.currentFolder, access: acc.list, owner: owner || null });
+    accessLine(acc.info);
+    $("access-dlg").close();
+    toast("Доступ сохранён", 3000);
+    loadHistory();
+  } catch (e) { $("access-err").textContent = e.message; $("access-err").hidden = false; }
+};
+$("access-cancel").onclick = () => $("access-dlg").close();
+$("access-open").onclick = openAccess;
+
+function renderDeleted(box, q){
+  const found = deletedItems.filter(it => matches(it, q));
+  if (!found.length) return;
+  const d = document.createElement("details"); d.className = "quarter"; d.dataset.quarter = "deleted";
+  d.open = openQuarters.has("deleted") || !!q;
+  d.ontoggle = () => { if (!$("recent-search").value.trim()) d.open ? openQuarters.add("deleted") : openQuarters.delete("deleted"); };
+  const sum = document.createElement("summary");
+  sum.append("Удалённые");
+  const n = document.createElement("span"); n.className = "count"; n.textContent = found.length;
+  sum.append(n);
+  const list = document.createElement("div"); list.className = "items";
+  for (const it of found) {
+    const row = document.createElement("div"); row.className = "gone";
+    const name = document.createElement("span"); name.textContent = it.region;
+    const gone = it.deleted || {};
+    const who = document.createElement("small");
+    who.textContent = "удалил" + (gone.name ? " " + gone.name : "") + (gone.at ? ", " + when(gone.at) : "");
+    const acts = document.createElement("div"); acts.className = "acts";
+    const back = document.createElement("button"); back.type = "button"; back.textContent = "Вернуть";
+    back.onclick = () => restoreBrief(it);
+    acts.append(back);
+    if (!state.me.portal || state.me.is_admin) {      // стереть навсегда может только администратор
+      const kill = document.createElement("button");
+      kill.type = "button"; kill.className = "danger"; kill.textContent = "Стереть";
+      kill.onclick = () => purgeBrief(it);
+      acts.append(kill);
+    }
+    row.append(name, acts, who);
+    list.appendChild(row);
+  }
+  d.append(sum, list);
+  box.appendChild(d);
+}
+$("recent-search").oninput = renderHistory;
+function markActiveHistory(){
+  document.querySelectorAll("#recent-list button").forEach(b => b.classList.toggle("active", !!state.job && b.dataset.folder === state.currentFolder));
+}
+async function openHistory(it){
+  if (isRunning()) { toast("Дождитесь окончания текущей обработки."); return false; }
+  await flushSave();
+  try {
+    const r = await post("api/open-result", { folder: it.folder });
+    state.currentFolder = it.folder;
+    setJob(r.job_id);
+    clearTimeout(state.poll); poll();
+    $("out").scrollIntoView({ behavior: "smooth", block: "start" });   // показываем, куда открылся бриф
+    return true;
+  } catch (e) {
+    toast(e.status === 400 && /не найден/.test(e.message) ? "Такого брифа нет — возможно, его удалили." : e.message, 6000);
+    return false;
+  }
+}
+
+/* ---------- приложить к совещанию ----------
+   Совещание — общая ось пространства (контракт, п. 9): своего мы не заводим, а просим
+   «Модератора» найти или завести по паре «дата + название», и кладём готовый бриф
+   в папку совещания у «Материалов» под бронью 04. Зовём из браузера, как и A3. */
+function meetSay(text, bad, href, label, full){
+  const el = $("meet-state");
+  el.className = "hint" + (bad ? " bad" : "");
+  el.textContent = text || "";
+  el.title = full || "";                  // полное название совещания — подсказкой
+  el.hidden = !text;
+  if (href) {
+    const a = document.createElement("a");
+    a.href = href; a.target = "_blank"; a.rel = "noopener"; a.textContent = label || "открыть совещание";
+    el.append(" ", a);
+  }
+}
+function isoDate(ru){
+  const m = String(ru || "").match(/^(\d{2})\.(\d{2})\.(\d{4})$/);   // «Материалы» ждут ГГГГ-ММ-ДД
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : ru;
+}
+function todayRu(){
+  const d = new Date();
+  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+}
+async function knownMeetings(){
+  try {
+    const r = await fetch("/moderator/api/meetings", { credentials: "same-origin" });
+    if (!r.ok) return [];
+    return (await r.json()).meetings || [];
+  } catch { return []; }
+}
+/* Короткое название совещания — одно на всё пространство (контракт п. 9): его считает
+   «Модератор» и отдаёт полем short_title, человек может поправить его в карточке совещания.
+   Своего не придумываем. Сосед старый и поля нет — показываем полное: лучше длинно, чем по-своему. */
+function meetShort(m){ return norm((m && (m.short_title || m.title)) || "") || "Без названия"; }
+/* ФИО, похожее на опечатку, наружу не выпускаем: ни в папку совещания, ни в лист A3 (п. 5а). */
+function doubtfulNames(){
+  return ((((state.jobInfo || {}).result || {}).talks) || []).filter(t => (t.check || {}).status === "close");
+}
+function stopOnDoubt(){
+  const bad = doubtfulNames();
+  if (!bad.length) return false;
+  toast(`Сначала выберите написание: ${bad.map(t => "«" + t.speaker + "»").join(", ")} `
+        + "расходится с реестром людей — см. «Докладчики».", 7000);
+  $("sec-talks").scrollIntoView({ behavior: "smooth", block: "start" });
+  return true;
+}
+/* Что прикладываем к совещанию. Документов два вида: открытый бриф (саммари) и сводный бриф.
+   У каждого свой файл, свой source для «Материалов» (п. 9: тот же source — новая редакция,
+   другой — документ рядом), своё место, где запоминается привязка, и своя строка состояния. */
+function briefTarget(){
+  const r = (state.jobInfo && state.jobInfo.result) || {};
+  return {
+    word: docWord("бриф", "саммари"), done: docWord("Бриф приложен к совещанию", "Саммари приложено к совещанию"),
+    file: `api/file/${state.job}/docx`, name: r.docx_name || docWord("Бриф.docx", "Саммари.docx"),
+    sourceId: state.currentFolder || state.job,
+    fileSource: false,                  // бриф в папке один — «Материалы» узнают его по названию
+    prev: (state.jobInfo && state.jobInfo.meeting) || null,
+    bind: m => post("api/meeting", { job_id: state.job, ...m }).then(() => { if (state.jobInfo) state.jobInfo.meeting = m; }),
+    say: meetSay,
+  };
+}
+async function openMeetDialog(target){
+  if (!target || target instanceof Event) {
+    if (!state.job || !hasResult()) { toast(`Сначала откройте готовый ${docWord("бриф", "саммари")}`); return; }
+    if (stopOnDoubt()) return;
+    target = briefTarget();
+  }
+  state.meetTarget = target;
+  $("meet-lead").textContent = "Совещание ведёт сервис «Совещание»: выберите его из списка или заведите новое. "
+    + `Документ «${target.name}» ляжет в папку совещания: номер и имя ему дадут «Материалы».`;
+  const dlg = $("meet-dlg"), known = await knownMeetings();
+  const prev = target.prev;
+  const pick = $("meet-pick");
+  pick.innerHTML = "";
+  const first = document.createElement("option");
+  first.value = ""; first.textContent = "＋ Новое совещание";
+  pick.appendChild(first);
+  // ближайшие сверху: в списке «Модератора» прошедшие уже уехали в архив
+  const rows = known.slice().sort((a, b) => isoDate(a.date || "").localeCompare(isoDate(b.date || "")));
+  rows.forEach(m => {
+    const o = document.createElement("option");
+    o.value = m.id || ""; o.dataset.title = m.title || ""; o.dataset.date = m.date || "";
+    o.dataset.short = meetShort(m);
+    o.textContent = (m.date || "без даты") + " — " + meetShort(m);
+    o.title = m.title || "";               // полное название — подсказкой, чтобы ничего не терялось
+    pick.appendChild(o);
+  });
+  const hit = prev && rows.find(m => m.id === prev.id);
+  pick.value = hit ? hit.id : "";
+  $("meet-date").value = (prev && prev.date) || todayRu();
+  $("meet-title").value = hit ? "" : (prev && prev.title) || "";
+  $("meet-err").hidden = true;
+  pick.onchange = () => {
+    const o = pick.selectedOptions[0];
+    const isNew = !pick.value;
+    $("meet-new").hidden = !isNew;
+    // полное название видно целиком под списком, если оно отличается от короткого
+    $("meet-full").textContent = isNew || o.dataset.title === o.dataset.short ? "" : (o.dataset.title || "");
+    if (isNew) $("meet-title").focus();
+  };
+  pick.onchange();
+  dlg.showModal();
+  (pick.value ? pick : $("meet-title")).focus();
+}
+function meetChosen(){
+  const o = $("meet-pick").selectedOptions[0];
+  return $("meet-pick").value
+    ? { title: norm(o.dataset.title), date: norm(o.dataset.date) }
+    : { title: $("meet-title").value.trim(), date: $("meet-date").value.trim() };
+}
+async function meetError(r){
+  let d = {};
+  try { d = await r.json(); } catch {}
+  const msg = d.detail || d.error || d.message || "";
+  if (r.status === 401 || r.status === 403) return "Нет доступа к этому сервису — попросите администратора портала открыть его вам.";
+  if (r.status === 404 || r.status === 405) return "Соседний сервис этой версии так ещё не умеет — его нужно обновить.";
+  if (r.status >= 500) return `соседний сервис ответил ошибкой ${r.status}${msg ? " (" + msg + ")" : ""} — `
+    + "он не справился с запросом, причина видна в его журнале";
+  return msg || `Ошибка ${r.status}.`;
+}
+/* Папка пакета — у «Материалов», по ключу совещания (ошибка пользователя 02.10, скриншот A3:
+   «В папку совещания положить не вышло: 404 Мероприятие не найдено»). id папки у «Материалов» — хэш
+   её пути: сменили у совещания дату или название — папка переехала (link → _relocate) и получила
+   новый id, а «Совещание» в find-or-create отдаёт запомненный, бывает, прежний. Поэтому перед
+   загрузкой всегда зовём link (идемпотентен по meeting: актуальный id, он же привязка; папки нет —
+   заведёт), а folder из «Совещания» (hint) — только подсказка, когда «Материалы» не ответили
+   (409 «У этой папки уже есть совещание», 5xx, нет связи). Новый id запоминаем и в «Совещании». */
+async function packageFolder(L, meetingId, date, title, hint){
+  hint = String(hint || "");
+  let made = null, why = "";
+  try {
+    const r = await fetch(L.link, {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ meeting: meetingId, date: isoDate(date), title }),
+    });
+    if (r.ok) made = await r.json().catch(() => null);
+    else why = "папку совещания завести не удалось — " + await meetError(r);
+  } catch (e) { why = "не удалось завести папку: " + e.message; }
+  const id = String((made && (made.id || (made.event && made.event.id))) || "");
+  if (!id) return { id: hint, why };
+  if (id !== hint) {                       // «Совещание» должно знать номер папки
+    await fetch(L.folder.replace("{id}", encodeURIComponent(meetingId)), {
+      method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder: id }),
+    }).catch(() => {});
+  }
+  return { id, why: "" };
+}
+/* Отказ «Материалов» на загрузке — их же словами («Мероприятие не найдено»), без кода и сырого JSON:
+   общий meetError на 404 сказал бы «сосед не умеет», а здесь 404 — про папку, а не про версию. */
+async function packageError(r){
+  let d = null;
+  try { d = await r.clone().json(); } catch {}
+  if (d && typeof d.detail === "string" && d.detail && r.status < 500) return d.detail;
+  return meetError(r);
+}
+async function attachToMeeting(){
+  const L = state.me.meeting, btn = $("meet-go"), T = state.meetTarget || briefTarget();
+  const { title, date } = meetChosen();
+  const err = t => { $("meet-err").textContent = t; $("meet-err").hidden = false; btn.disabled = false; };
+  if (!L) { err("Приложить к совещанию можно только из портала."); return; }
+  if (!date || !title) { err("Выберите совещание из списка или впишите название и дату."); return; }
+  btn.disabled = true;
+  $("meet-err").hidden = true;
+  let card;
+  try {
+    const r = await fetch(L.find_or_create, {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, title, source: { service: "brief", id: T.sourceId } }),
+    });
+    if (!r.ok) { err(await meetError(r)); return; }
+    card = await r.json();
+  } catch (e) { err("Не удалось связаться с сервисом «Совещание»: " + e.message); return; }
+
+  $("meet-dlg").close();
+  btn.disabled = false;
+  const found = (card.created ? "Совещание заведено" : "Совещание найдено")
+                + ` («${meetShort({ short_title: card.short_title, title })}»)`;
+  let filed = false, why = "", folder = card.folder || "";
+
+  // папку пакета берём у «Материалов» по ключу совещания; folder из «Совещания» — подсказка
+  T.say(`${found} — кладу ${T.word} в пакет совещания…`);
+  const got = await packageFolder(L, card.id, date, title, folder);
+  folder = got.id;
+  if (folder) {
+    try {
+      const file = await fetch(T.file, { credentials: "same-origin" });
+      if (!file.ok) throw new Error(`не удалось прочитать готовый ${T.word}`);
+      const blob = await file.blob();
+      const send = id => {
+        const fd = new FormData();
+        // номер и имя в папке ставят «Материалы» по старшинству. Сводный передаёт source (п. 9):
+        // тот же id — новая редакция на прежнем месте, другой — отдельный документ рядом
+        fd.append("files", blob, T.name);
+        if (T.fileSource) fd.append("source", JSON.stringify({ service: "brief", id: T.sourceId }));
+        return fetch(L.files.replace("{folder}", encodeURIComponent(id)),
+                     { method: "POST", body: fd, credentials: "same-origin" });
+      };
+      let put = await send(folder);
+      // 404 «Мероприятие не найдено» — папка переехала уже после link (или шли по подсказке):
+      // одна перепривязка тем же link и повтор по новому id; id тот же — прежняя ошибка
+      if (put.status === 404) {
+        const fresh = (await packageFolder(L, card.id, date, title, folder)).id;
+        if (fresh && fresh !== folder) { folder = fresh; put = await send(fresh); }
+      }
+      if (!put.ok) { why = await packageError(put); } else { filed = true; }
+    } catch (e) { why = e.message; }
+  } else {
+    why = got.why || "папку совещания завести не удалось";
+  }
+  const short_title = norm(card.short_title || "");
+  try { await T.bind({ id: card.id, url: card.url, folder, title, short_title, date, filed }); } catch {}
+  if (filed) {
+    T.say(`${found}: ${T.word} лежит в пакете совещания —`, false, card.url, "открыть совещание", title);
+    toast(T.done, 5000);
+  } else {
+    T.say(`${found}. В пакет совещания положить не вышло: ${why}. Документ можно скачать здесь —`,
+          true, card.url, "открыть совещание", title);
+  }
+  updateButtons();
+}
+$("to-meeting").onclick = () => openMeetDialog();
+$("meet-go").onclick = attachToMeeting;
+$("meet-cancel").onclick = () => $("meet-dlg").close();
+
+/* ---------- новый бриф ---------- */
+async function newBrief(){
+  if (isRunning()) { toast("Сейчас идёт обработка — дождитесь её окончания или нажмите «Отменить»."); return; }
+  await flushSave();
+  clearTimeout(state.poll); clearInterval(state.tick);
+  state.job = null; state.jobInfo = null; state.currentFolder = null; store.set(null);
+  renderDocs([]); uploadError("");
+  if (state.newDefault) $("brief-type").value = state.newDefault;   // вид по умолчанию для нового брифа
+  applyJobType(null);                  // для нового брифа вид снова можно выбрать
+  $("manual-answer").value = ""; $("manual").open = false;
+  show("empty"); updateButtons(); loadHistory();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+$("new-brief").onclick = newBrief;
+
+/* ---------- запуск страницы: возвращаемся к текущему брифу ---------- */
+async function loadMe(){
+  try { state.me = await api("api/whoami"); } catch { return; }
+  if (!state.me.portal) return;
+  // имя пользователя и переход в портал показывает общая шапка рабочего пространства
+  $("make-a3").hidden = !state.me.a3;      // соседний сервис есть только за порталом
+  $("to-meeting").hidden = !state.me.meeting;
+  $("open-folder").hidden = true;                       // проводник открылся бы на ПК, где стоит программа
+  if (!state.me.is_admin) $("service-links").hidden = true;   // сотруднику служебные файлы не нужны
+  if (!state.me.is_admin) { $("open-settings").hidden = true; $("setup-banner").querySelector("p").textContent = "Искра пока не подключена. Ключ задаёт администратор портала."; $("setup-btn").hidden = true; }
+}
+
+/* Ссылка вида /brief/#brief=<папка> открывает готовый бриф сразу:
+   так на него можно попасть из общего поиска портала. */
+function folderFromHash(){
+  const m = String(location.hash || "").match(/^#brief=(.+)$/);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+/* Ссылка вида /brief/#job=<номер задания> открывает задание в любом состоянии, в том числе
+   идущее: так «Материалы», отправившие документ из «Приёмной», ведут человека смотреть,
+   как идёт работа (просьба «Материалов» 21.09). Готового брифа в реестре ещё нет,
+   поэтому #brief= здесь не годится. */
+function jobFromHash(){
+  const m = String(location.hash || "").match(/^#job=([0-9a-f]{12})$/i);
+  return m ? m[1].toLowerCase() : "";
+}
+async function openFromHash(){
+  if (String(location.hash || "") === "#new") {        // ссылка с плитки портала: сразу новый бриф
+    history.replaceState(null, "", location.pathname + location.search);
+    await newBrief();
+    return true;
+  }
+  const jid = jobFromHash();
+  if (jid) {
+    if (jid === state.job) return true;
+    if (isRunning()) { toast("Дождитесь окончания текущей обработки."); return false; }
+    await flushSave();
+    try { await api(`api/job/${jid}`); }
+    catch { toast("Такого задания нет — возможно, его удалили или программу перезапускали."); return false; }
+    state.currentFolder = null; state.jobInfo = null;
+    renderDocs([]);                        // документы задания нарисует опрос
+    setJob(jid);
+    clearTimeout(state.poll); poll();
+    return true;
+  }
+  const folder = folderFromHash();
+  if (!folder) return false;
+  // круг «мои / отдела» — фильтр показа, а не запрет (контракт п. 2): бриф коллеги из общего поиска
+  // открывается по ссылке, даже если в текущем списке его нет. Нет брифа — скажет сервер
+  const known = (historyItems || []).find(it => it.folder === folder) || { folder };
+  return await openHistory(known);
+}
+window.addEventListener("hashchange", openFromHash);
+
+function fromPortalHome(){
+  // переход именно с главной портала, а не возврат на свою же страницу
+  try {
+    const r = new URL(document.referrer || "", location.href);
+    return r.origin === location.origin && /^\/(index\.html)?$/.test(r.pathname);
+  } catch { return false; }
+}
+
+(async function init(){
+  await loadMe(); loadTypes(); await loadSettings(); await loadHistory();
+  if (await openFromHash()) return;
+  // с главной портала человек приходит делать новый бриф, а не смотреть прошлый
+  if (fromPortalHome()) { await newBrief(); return; }
+  const saved = store.get();
+  if (saved) { state.job = saved; poll(); }
+})();
+</script>
+</body>
+</html>

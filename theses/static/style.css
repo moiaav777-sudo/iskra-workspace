@@ -1,0 +1,474 @@
+/* Типографику сервис не объявляет: шрифт, размер текста и вид шапки карточки —
+   общие на всё пространство и живут в portal/static/base.css (контракт, п. 5б).
+   Здесь только то, что относится к самому сервису. */
+/* Оформление сервиса «Повестка и участники».
+
+   Взято из «Модератора» (`../moderator/static/index.html`) без изменений там, где
+   блоки общие: повестка и список участников в двух сервисах должны выглядеть
+   одинаково — человек ходит между ними и не должен переучиваться. Убрано только
+   то, чего здесь нет: сценарий, материалы, поручения, готовность, тайминг.
+   Если оформление меняется в «Модераторе» — меняем и здесь. */
+
+/* Цвета и размеры — общие для всего пространства, в /static/base.css (отдаёт портал). */
+*{box-sizing:border-box;margin:0;padding:0;}
+button{font-family:inherit;letter-spacing:-0.01em;}
+input,textarea,select{font-family:inherit;letter-spacing:-0.01em;}
+
+/* ── шапка ── */
+.topbar{position:sticky;top:0;z-index:50;height:64px;background:var(--surface);border-bottom:1px solid var(--border);backdrop-filter:blur(8px);}
+.topbar-inner{max-width:1280px;margin:0 auto;width:100%;height:100%;display:flex;align-items:center;justify-content:space-between;padding:0 24px;}
+.topbar .brand{display:flex;align-items:center;gap:9px;font-size:1rem;font-weight:600;color:var(--text);}
+.topbar .brand svg{width:18px;height:18px;color:var(--accent);}
+.topbar .actions{display:flex;align-items:center;gap:10px;}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--surface);color:var(--text-2);cursor:pointer;transition:all .15s var(--ease);}
+.icon-btn:hover{background:var(--surface-2);color:var(--text);}
+.btn-primary{height:46px;padding:0 16px;border:1px solid var(--accent);border-radius:var(--radius-s);background:var(--accent);color:var(--accent-ink);font-size:0.897rem;font-weight:500;cursor:pointer;transition:all .15s var(--ease);}
+.btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);}
+.btn-primary:active{transform:scale(.98);}
+
+/* ── каркас ── */
+.wrap{max-width:1280px;margin:0 auto;padding:28px 24px 72px;}
+.grid{display:grid;grid-template-columns:340px minmax(0,1fr);gap:24px;align-items:start;}
+.col{display:flex;flex-direction:column;gap:14px;}
+/* рабочая колонка обязана сжиматься: иначе длинная строка кнопок или вкладок
+   растягивает страницу шире окна и правые кнопки становятся недостижимыми */
+#workspace{min-width:0;}
+#workspace .card{min-width:0;}
+
+/* ── карточки ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-m);padding:20px;box-shadow:var(--shadow-sm);}
+
+/* ── вкладки ── */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap;padding:0 2px;}
+.tab{display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:9px 16px 10px;font-size:0.897rem;font-weight:500;color:var(--text-2);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:color .15s var(--ease),border-color .15s var(--ease);}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+
+/* ── повестка и участники ── */
+.p-row{display:flex;gap:10px;align-items:flex-start;}
+.p-num{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--surface-2);color:var(--text-2);font-size:0.795rem;font-weight:600;flex-shrink:0;margin-top:1px;}
+.p-body{flex:1;min-width:0;}
+.p-controls{display:flex;gap:4px;align-items:center;flex-shrink:0;}
+.arr{width:26px;height:26px;border:1px solid var(--border);background:var(--surface);border-radius:6px;cursor:pointer;font-size:0.846rem;line-height:1;color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;padding:0;}
+.arr:hover:not(:disabled){background:var(--surface-2);color:var(--text);}
+.arr:disabled{opacity:.35;cursor:default;}
+.speaker-line{display:grid;grid-template-columns:48px minmax(130px,0.85fr) minmax(210px,1.7fr) 84px 26px;gap:10px;align-items:center;padding:5px 0;font-size:0.872rem;color:var(--text);}
+.spk-move{display:flex;gap:2px;align-items:center;}
+.spk-move .arr{width:22px;height:22px;font-size:0.718rem;}
+.spk-name-cell{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.spk-who{font-size:0.718rem;color:var(--text-muted);}
+.min-wrap{display:inline-flex;align-items:center;gap:4px;}
+.min-lbl{font-size:0.718rem;color:var(--text-muted);}
+.spk-name{font-weight:700;white-space:nowrap;}
+.spk-name-rest{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:0.795rem;line-height:1.3;}
+.spk-role{min-width:0;color:var(--text-2);line-height:1.35;white-space:normal;}
+.min-inp{width:58px;padding:3px 6px;font-size:0.846rem;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-variant-numeric:tabular-nums;margin-bottom:0;height:auto;}
+.spk-del{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.795rem;padding:0 3px;justify-self:center;}
+.spk-del:hover{color:var(--danger);}
+.part-row{display:grid;grid-template-columns:30px minmax(140px,0.8fr) 90px minmax(200px,1.6fr) 150px auto;gap:12px;align-items:center;padding:9px 0;font-size:0.872rem;color:var(--text);border-bottom:1px solid var(--border);}
+.part-row:last-child{border-bottom:none;}
+.part-rank{font-size:0.795rem;color:var(--text-2);font-weight:600;white-space:nowrap;}
+.part-row .att{height:34px;margin-bottom:0;font-size:0.846rem;padding:0 8px;}
+.part-row .role-inp{height:34px;margin-bottom:0;font-size:0.846rem;}
+.link-btn{background:none;border:none;color:var(--accent);font-size:0.846rem;cursor:pointer;padding:2px 4px;border-radius:4px;}
+.link-btn:hover{text-decoration:underline;}
+
+/* ── список совещаний ── */
+.list-item{padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-m);margin-bottom:8px;cursor:pointer;transition:all .15s var(--ease);background:var(--surface);overflow:hidden;}
+.list-item:hover{border-color:var(--border-strong);box-shadow:var(--shadow-sm);}
+.list-item .t{font-weight:600;color:var(--text);font-size:0.897rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:break-word;word-break:break-word;}
+.list-item .s{font-size:0.795rem;color:var(--text-muted);}
+.list-item.active{border-color:var(--accent);background:var(--accent-bg);}
+.list-item:focus-visible,.dropzone:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.month-h{padding:10px 4px 4px;font-size:0.795rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);}
+.meet-date{font-size:1.154rem;font-weight:700;color:var(--text);letter-spacing:-0.01em;margin-bottom:3px;font-variant-numeric:tabular-nums;}
+
+/* ── формы ── */
+input,textarea,select{width:100%;height:46px;padding:0 12px;border:1px solid var(--border-strong);border-radius:var(--radius-s);font-size:0.897rem;color:var(--text);background:var(--surface);transition:border-color .15s var(--ease),box-shadow .15s var(--ease);margin-bottom:10px;}
+textarea{height:auto;min-height:96px;padding:10px 12px;resize:vertical;line-height:1.5;}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg);}
+label{font-size:0.846rem;font-weight:500;color:var(--text-2);display:block;margin:10px 0 4px;}
+label:first-child{margin-top:0;}
+label.check{display:flex;align-items:center;gap:8px;cursor:pointer;margin:12px 0 6px;}
+label.check input[type=checkbox]{width:16px;height:16px;margin:0;flex-shrink:0;accent-color:var(--accent);cursor:pointer;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+/* ── кнопки ── */
+.btn{height:46px;padding:0 16px;border:1px solid var(--accent);border-radius:var(--radius-s);background:var(--accent);color:var(--accent-ink);font-size:0.897rem;font-weight:500;cursor:pointer;transition:all .15s var(--ease);white-space:nowrap;}
+.btn:hover{background:var(--accent-hover);border-color:var(--accent-hover);}
+.btn:active{transform:scale(.98);}
+.btn.ghost{background:var(--surface);color:var(--text-2);border-color:var(--border-strong);}
+.btn.ghost:hover{background:var(--surface-2);color:var(--text);border-color:var(--border-strong);}
+.btn.danger{background:var(--surface);color:var(--danger);border-color:var(--border-strong);}
+.btn.danger:hover{background:var(--danger-bg);border-color:var(--danger);}
+.btn.block{width:100%;}
+.btn:disabled{opacity:.5;cursor:default;transform:none;}
+
+/* ── секции / мелочи ── */
+.section{padding:13px 0;border-bottom:1px solid var(--border);}
+.section:last-child{border-bottom:none;}
+.muted{color:var(--text-muted);font-size:0.846rem;}
+.empty{color:var(--text-muted);font-size:0.897rem;padding:10px 0;}
+hr{border:none;border-top:1px solid var(--border);margin:16px 0;}
+.chip{display:inline-block;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-pill);padding:3px 11px;font-size:0.821rem;margin:3px 6px 3px 0;color:var(--text);}
+.group-h{margin:14px 0 4px;font-size:0.795rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-2);}
+
+/* ── разбор «Искрой» ── */
+.ai-result{margin-top:20px;border-radius:var(--radius-m);padding:20px;border:1px solid var(--border);animation:rise .2s var(--ease);}
+.ai-result.confident{background:var(--success-bg);border-color:rgba(22,163,74,.25);}
+.ai-result.uncertain{background:var(--warning-bg);border-color:rgba(217,119,6,.25);}
+.ai-result.failed{background:var(--danger-bg);border-color:rgba(220,38,38,.25);}
+.ai-badge{display:inline-flex;align-items:center;gap:7px;font-size:0.718rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-bottom:10px;}
+.ai-badge .dot{width:6px;height:6px;border-radius:50%;background:linear-gradient(135deg,#6E56CF,#3E63DD);}
+.ai-result .ai-title{font-size:1.154rem;font-weight:600;letter-spacing:-0.01em;margin-bottom:3px;}
+.ai-result .ai-sub{font-size:0.846rem;color:var(--text-2);margin-bottom:10px;}
+.ai-result .ai-summary{font-size:0.897rem;color:var(--text-2);margin-top:8px;}
+.ai-result .ai-actions{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.ai-result .link-btn{background:none;border:none;color:var(--text-2);font-size:0.897rem;cursor:pointer;padding:6px 8px;border-radius:var(--radius-s);transition:all .15s var(--ease);}
+.ai-result .link-btn:hover{color:var(--text);background:var(--surface-2);}
+.cand-chips{display:flex;gap:8px;flex-wrap:wrap;}
+.cand-chips button{height:34px;padding:0 14px;border:1px solid var(--border-strong);border-radius:var(--radius-pill);background:var(--surface);color:var(--text);font-size:0.846rem;cursor:pointer;transition:all .15s var(--ease);}
+.cand-chips button:hover{border-color:var(--accent);color:var(--accent);}
+/* ── реестр людей: найденные записи и расхождения в должностях ── */
+.names-res{list-style:none;margin:8px 0 0;}
+.names-res li{padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-m);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.names-res .n{font-weight:600;font-size:0.897rem;}
+.names-res .r{font-size:0.846rem;color:var(--text-muted);}
+.reg-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:8px;}
+.conflict{margin-bottom:14px;padding:12px;background:var(--surface);border-radius:var(--radius-s);border-left:3px solid var(--accent);}
+.conflict .who{font-weight:600;margin-bottom:8px;font-size:0.872rem;}
+.conflict .src{display:flex;gap:10px;padding:8px;margin:4px -8px;border-radius:6px;cursor:pointer;align-items:flex-start;font-size:0.846rem;line-height:1.4;}
+.conflict .src.checked{background:var(--accent-bg);}
+.conflict .src input[type=radio]{width:16px;height:16px;margin:5px 0 0;flex:0 0 auto;accent-color:var(--accent);cursor:pointer;}
+.conflict .src .what{flex:1;min-width:0;}
+.conflict .src .from{display:block;font-weight:500;color:var(--accent);font-size:0.795rem;}
+.conflict .src .role{display:block;color:var(--text-2);}
+.ai-warnings{margin-top:12px;padding:10px 12px;border:1px solid var(--border);border-left:3px solid #e0a500;background:var(--surface-2);border-radius:8px;}
+.ai-warnings .warn-title{font-size:0.846rem;font-weight:600;margin-bottom:6px;}
+.ai-warnings .warn-item{font-size:0.872rem;padding:2px 0;}
+.replace-warn{margin:4px 0 10px;font-size:0.872rem;font-weight:600;color:var(--warning);}
+.diff-box{margin-top:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);}
+.diff-box .diff-title{font-size:0.846rem;font-weight:600;margin-bottom:6px;}
+.diff-box .diff-item{font-size:0.846rem;padding:2px 0;}
+.diff-box .diff-item.new{color:var(--accent);}
+.diff-box .diff-item.existing{color:var(--text-2);}
+.ai-cmd{display:flex;gap:8px;margin-bottom:12px;align-items:stretch;}
+.ai-cmd input{flex:1;margin-bottom:0;}
+.dropzone{border:2px dashed var(--border-strong);border-radius:10px;padding:22px;text-align:center;cursor:pointer;margin-top:6px;transition:border-color .15s var(--ease),background .15s var(--ease);}
+.dropzone:hover,.dropzone.dz-over{border-color:var(--accent);background:var(--accent-bg);}
+.dz-title{font-size:0.897rem;font-weight:600;margin-bottom:4px;}
+.step-hint{margin:0 0 12px;padding:10px 12px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;background:var(--accent-bg);font-size:0.872rem;color:var(--text-2);line-height:1.5;}
+.editors-line{margin:10px 0 0;padding:8px 12px;border:1px solid var(--warning);border-radius:8px;background:var(--warning-bg);color:var(--warning);font-size:0.872rem;line-height:1.45;}
+.warn{background:var(--danger-bg);border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:8px 10px;font-size:0.846rem;margin-bottom:10px;}
+
+/* ── тосты ── */
+#toasts{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;flex-direction:column;gap:8px;}
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-m);padding:12px 16px;font-size:0.897rem;color:var(--text);box-shadow:var(--shadow-md);animation:rise .2s var(--ease);max-width:360px;}
+.toast.ok{border-left:3px solid var(--success);}
+.toast.err{border-left:3px solid var(--danger);}
+
+/* ── модалка ── */
+.overlay{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.4);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;animation:fade .15s var(--ease);}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;width:400px;max-width:90vw;box-shadow:var(--shadow-md);animation:rise .2s var(--ease);margin:auto;max-height:calc(100vh - 48px);overflow-y:auto;}
+.modal h3{font-size:1.051rem;font-weight:600;margin-bottom:8px;letter-spacing:-0.01em;}
+.modal p{font-size:0.897rem;color:var(--text-2);margin-bottom:18px;}
+.modal .modal-actions{display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:var(--surface);padding-top:12px;}
+.modal.wide{width:720px;max-width:94vw;}
+
+@keyframes rise{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fade{from{opacity:0;}to{opacity:1;}}
+
+@media (max-width:1200px){
+  .part-row{grid-template-columns:30px 1fr 90px 150px auto;}
+  .part-row .role-inp{grid-column:2;grid-row:2;}
+}
+@media (max-width:920px){
+  .wrap{padding:16px 12px 56px;}
+  .grid{grid-template-columns:minmax(0,1fr);}
+  .topbar{height:auto;min-height:64px;}
+  .topbar-inner{height:auto;flex-wrap:wrap;gap:8px;padding:8px 16px;}
+  .topbar .actions{flex-wrap:wrap;}
+  .row2{grid-template-columns:1fr;}
+  .modal.wide{width:94vw;}
+}
+@media (max-width:640px){
+  .speaker-line{grid-template-columns:48px 1fr 84px 26px;}
+  .spk-role{grid-column:2;grid-row:2;}
+}
+
+/* телефон: текстовые кнопки-ссылки («Архив», «Свернуть») тоже должны ловиться пальцем */
+@media (max-width:700px){
+  .link-btn{min-height:44px;display:inline-flex;align-items:center;padding:2px 8px;}
+}
+
+
+/* ── своё для «Тезисов» ───────────────────────────────────────────────────
+   Общие классы (.card, .btn, .tabs, .list-item…) взяты из «Повестки», чтобы
+   сервисы пространства не расходились. Ниже — только то, чего там нет:
+   редактор тезисов, выделения из образца оформления и окно «Что нужно». */
+
+/* ── текст тезисов: редактор Quill, как в «Совещании» ──────────────────────
+   Оформление редактора — из moderator/static/index.html, чтобы сервисы не расходились. */
+.editor-wrap { margin-bottom: .5rem; }
+.ql-container { font-family: inherit; font-size: 1rem; }
+.ql-container.ql-snow { background: #fff; border-radius: 0 0 var(--radius-s) var(--radius-s); border-color: var(--border-strong); }
+.ql-toolbar.ql-snow { border-radius: var(--radius-s) var(--radius-s) 0 0; border-color: var(--border-strong); background: var(--surface-2); }
+.ql-editor { min-height: 12rem; line-height: 1.55; color: #1a1a1a; background: #fff; }
+.ql-container.ql-snow .ql-editor.ql-blank::before { color: var(--text-muted); font-style: normal; }
+.ql-toolbar.ql-snow .ql-picker-label, .ql-toolbar.ql-snow .ql-picker-item { color: #1a1a1a; }
+.ql-snow .ql-stroke { stroke: #1a1a1a; }
+.ql-snow .ql-fill { fill: #1a1a1a; }
+.ql-toolbar .marker-btn { width: auto !important; padding: 0 .5rem !important; color: #c00000 !important; font-weight: 600; font-size: .85rem; white-space: nowrap; }
+.ql-toolbar .marker-btn:hover { background: var(--surface); border-radius: 4px; }
+.thesis-view { padding: .25rem 0; line-height: 1.55; }
+.thesis-view.ql-editor { min-height: 0; background: transparent; color: var(--text); overflow: visible; white-space: normal; }
+.thesis-view ul, .thesis-view ol, .draft-list ul, .draft-list ol { padding-left: 1.5em; margin: .25rem 0; }
+.thesis-view li + li, .draft-list li + li { margin-top: .35rem; }
+.editor-foot { display: flex; gap: .75rem; align-items: center; font-size: .85rem; color: var(--text-muted); margin-top: .35rem; }
+.editor-foot .over { color: var(--warning); }
+.save-state { min-width: 6rem; }
+.save-state.ok { color: var(--success, var(--ok)); }
+.save-state.bad { color: var(--danger); }
+.edit-ta { width: 100%; min-height: 12rem; }
+.editor-hint { margin-top: .4rem; }
+.refs { margin-top: .75rem; font-size: .85rem; line-height: 1.45; }
+.mixed-note ul { margin: .35rem 0 0 1.2rem; }
+
+/* окно «Написать с «Искрой»…»: приложенные файлы и выбранные к отправке */
+.attach { margin-bottom: .75rem; }
+.attach-list { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .5rem; }
+.attach-new { display: contents; }
+.src-chip.new { border-style: dashed; }
+/* поле «приложить материалы» — общая зона .dropzone, как во всех разделах (02.10):
+   под ней приложенные и выбранные; компактная — в карточке, неактивная — при пределе */
+.attach .dropzone { margin: 0 0 .5rem; }
+.dropzone.sm { padding: .7rem 1rem; margin-top: .6rem; }
+.dropzone.sm .dz-title { margin-bottom: 2px; }
+.dropzone.off { cursor: default; opacity: .75; }
+.dropzone.off:hover { border-color: var(--border-strong); background: none; }
+.job-box.info { background: var(--accent-soft); border-color: var(--accent); }
+.modal .draft-list.thesis-view { max-height: 55vh; overflow: auto; padding: .5rem .75rem; border: 1px solid var(--border); border-radius: var(--radius-s); }
+
+/* маркер недостающей фактуры — в интерфейсе тем же красным, что и в Word */
+.marker { color: #c00000; font-weight: 700; }
+:root[data-theme="dark"] .marker { color: #ff8a80; }
+
+.gap-row {
+  display: flex; gap: 8px; align-items: baseline; padding: 6px 8px;
+  border-left: 3px solid #c00000; background: var(--bad-soft);
+  border-radius: 0 var(--radius-s) var(--radius-s) 0; margin-bottom: 6px;
+}
+
+.rules-text {
+  white-space: pre-wrap; font-size: .92rem; line-height: 1.55; color: var(--ink-2);
+  max-height: 60vh; overflow: auto; padding: 10px; background: var(--sunk);
+  border-radius: var(--radius-s);
+}
+
+.notice {
+  padding: 10px 12px; border-radius: var(--radius-s); margin-bottom: 10px;
+  background: var(--warning-bg); color: var(--warning); border: 1px solid currentColor;
+}
+.notice.info { background: var(--accent-soft); color: var(--accent); }
+
+
+/* ── карточки в боковой колонке ───────────────────────────────────────────
+   В «Повестке» вторая строка карточки — дата совещания крупно; здесь строки
+   служебные (для кого, хронометраж, файл правил), поэтому своя разметка. */
+#theses-list .list-item, #profiles-list .list-item { padding: 10px 12px; }
+
+.li-title { font-weight: 600; line-height: 1.35; margin-bottom: 2px; }
+.li-meta { font-size: .85rem; color: var(--muted); line-height: 1.4; }
+.li-file {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .78rem; color: var(--muted); margin-top: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.li-marks { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+.list-foot { margin-top: 10px; }
+
+/* ── шапка карточки тезисов ───────────────────────────────────────────────
+   Поля во всю ширину экрана выглядят неряшливо: «Минут» — это два знака. */
+.head-fields {
+  display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 10px 16px; align-items: end; margin-bottom: 14px;
+}
+.head-fields label { display: block; margin: 0; }
+.head-fields label.wide { grid-column: 1 / -1; }
+.head-fields label.narrow { max-width: 140px; }
+.head-fields input, .head-fields select { width: 100%; }
+@media (max-width: 720px) {
+  .head-fields { grid-template-columns: 1fr; }
+}
+
+/* ── приложенные материалы: строка ярлыков под кнопками ───────────────────*/
+.sources { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .5rem; margin-top: .9rem; }
+.src-label { font-size: .85rem; color: var(--text-muted); margin-right: .25rem; }
+.src-chip {
+  display: inline-flex; align-items: center; gap: .15rem; max-width: 22rem;
+  padding: .15rem .25rem .15rem .6rem; border: 1px solid var(--border);
+  border-radius: var(--radius-pill); background: var(--surface-2); font-size: .88rem;
+}
+.src-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.src-x {
+  border: 0; background: transparent; color: var(--text-muted); cursor: pointer;
+  font-size: 1rem; line-height: 1; width: 1.6rem; height: 1.6rem; border-radius: 50%;
+}
+.src-x:hover { background: var(--surface); color: var(--danger); }
+
+/* Заголовки блоков внутри карточки не должны липнуть к кнопкам над ними. */
+.section > h3, .card .section h3 { margin: 16px 0 8px; font-size: 1rem; }
+.hint { margin-top: 6px; font-size: .85rem; line-height: 1.4; }
+
+/* ── полоса «что делать сейчас» ───────────────────────────────────────────
+   Порядок работы не очевиден из самих блоков, поэтому он показан явно:
+   пройденное отмечено, текущий шаг выделен и рядом с ним нужная кнопка. */
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+
+.step {
+  display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: start;
+  padding: 8px 10px; border-radius: var(--radius-s);
+}
+.step-mark {
+  width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  font-size: .82rem; font-weight: 600; background: var(--sunk); color: var(--muted);
+}
+.step-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.step-note { font-size: .88rem; color: var(--muted); line-height: 1.4; }
+.step-act { margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+.step.done .step-mark { background: var(--ok-soft); color: var(--ok); }
+.step.done .step-body b { color: var(--ink-2); font-weight: 500; }
+
+.step.now { background: var(--accent-soft); }
+.step.now .step-mark { background: var(--accent); color: var(--accent-ink); }
+
+.step.later { opacity: .65; }
+
+/* ── шапка карточки одной строкой ─────────────────────────────────────────
+   Слева — о чём и сколько минут, справа тихо — что сделать с документом целиком. */
+.head-line { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
+.head-main { flex: 1 1 auto; min-width: 0; }
+.head-topic { font-size: 1.25rem; font-weight: 600; line-height: 1.3; }
+.head-meta { margin-top: 2px; font-size: .9rem; color: var(--text-muted); }
+.head-ask { margin-top: .35rem; font-size: .88rem; color: var(--text-2); line-height: 1.4;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.head-tools { display: flex; gap: .4rem; flex: 0 0 auto; }
+
+/* Главное действие — одна заметная кнопка; «Переписать» — отдельно справа. */
+.do-block { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+.do-spacer { flex: 1 1 auto; }
+.btn.big { font-size: 1rem; padding: 10px 18px; }
+.btn.sm { height: 2.4rem; padding: 0 .8rem; font-size: .85rem; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.do-note { font-size: .88rem; color: var(--text-muted); flex: 1 1 260px; line-height: 1.4; }
+
+/* ── окно «Что нужно в тезисах»: голосом или текстом ─────────────────────── */
+.overlay .modal.wide { width: 640px; max-width: min(640px, 94vw); }
+.dictate textarea { min-height: 9rem; margin-bottom: .4rem; }
+.dictate-bar { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-bottom: .5rem; }
+.btn.mic { display: inline-flex; align-items: center; gap: .4rem; }
+.btn.mic.on { color: var(--danger); border-color: var(--danger); background: var(--danger-bg); }
+.btn.mic.on svg { animation: theses-pulse 1.2s ease-in-out infinite; }
+@keyframes theses-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .btn.mic.on svg { animation: none; } }
+.dictate-state { font-size: .85rem; color: var(--text-muted); }
+.dictate-note { font-size: .8rem; color: var(--text-muted); line-height: 1.4; margin: -.15rem 0 .5rem; }
+.replace-note { margin: .25rem 0 .5rem; font-size: .88rem; font-weight: 600; color: var(--warning); }
+.new-head { grid-template-columns: 1fr 7rem; align-items: end; }
+.new-head label { margin: 0 0 .25rem; }
+
+@media (max-width: 640px) {
+  .head-line { flex-direction: column; }
+  .editor-info { margin-left: 0; width: 100%; }
+  .new-head { grid-template-columns: 1fr; }
+}
+
+/* ── окна: галочки и переключатели ────────────────────────────────────────
+   Общие стили тянут поля на всю ширину — из-за этого радиокнопка превращалась
+   в огромный круг. Выбор «в существующее / создать новое» делаем кнопками. */
+.modal input[type="radio"], .modal input[type="checkbox"] {
+  width: auto; height: auto; margin-right: 8px; vertical-align: middle;
+}
+
+.seg-switch {
+  display: flex; margin: 12px 0 10px; padding: 3px; gap: 3px;
+  background: var(--sunk); border-radius: var(--radius-pill);
+}
+.seg {
+  flex: 1 1 0; border: 0; background: transparent; color: var(--ink-2); cursor: pointer;
+  font-family: inherit; font-size: .95rem; line-height: 1.3; white-space: nowrap;
+  padding: 7px 12px; border-radius: var(--radius-pill);
+}
+.seg:hover:not(:disabled) { color: var(--ink); }
+.seg.active { background: var(--card); color: var(--ink); font-weight: 600; box-shadow: var(--shadow-sm); }
+.seg:disabled { opacity: .45; cursor: default; }
+
+.two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.modal label { display: block; margin-bottom: 10px; }
+
+/* Окно с формой: при увеличенном шрифте (кнопка A+) в узкое окно ничего не влезает. */
+.overlay .modal { max-width: min(560px, 92vw); }
+
+/* круг показа списка: мои / отдела / все */
+.scopes { display: flex; gap: 6px; margin: 0 0 10px; flex-wrap: wrap; }
+.scopes .scope { font: inherit; font-size: .95rem; cursor: pointer; padding: 6px 12px; min-height: 36px;
+  border: 1px solid var(--border); border-radius: 99px; background: var(--surface); color: var(--text-2); }
+.scopes .scope.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+@media (max-width: 700px) { .scopes .scope { min-height: 44px; } }
+
+/* Развилка в окне отправки: у тезисов два назначения, и они не исключают друг друга. */
+.choices { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.choice {
+  display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start;
+  padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-s);
+  cursor: pointer; margin: 0;
+}
+.choice:hover { border-color: var(--line-strong); }
+.choice input[type="checkbox"] { width: auto; height: auto; margin: 3px 0 0; }
+.choice .muted { font-size: .85rem; line-height: 1.35; }
+
+/* ── «Искра» думает ────────────────────────────────────────────────────────
+   Написание идёт фоном; индикатор стоит в области результата, чтобы было видно,
+   что работа идёт, на каком шаге и сколько прошло. Цвета и размеры — общие (п. 5б). */
+.spinner {
+  display: inline-block; width: 1em; height: 1em; flex: 0 0 auto;
+  border: 2px solid var(--accent-soft); border-top-color: var(--accent);
+  border-radius: 50%; animation: theses-spin .8s linear infinite;
+  vertical-align: -0.15em; margin-right: .5em;
+}
+.spinner.light { border-color: rgba(255,255,255,.35); border-top-color: var(--accent-ink); }
+@keyframes theses-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+
+.btn[aria-busy="true"] { display: inline-flex; align-items: center; opacity: 1; cursor: progress; }
+
+.job-box {
+  border: 1px solid var(--accent-soft); background: var(--accent-soft);
+  border-radius: var(--radius-s); padding: var(--card-pad, 1rem); margin-bottom: 1rem;
+}
+.job-box.bad { background: var(--bad-soft); border-color: var(--danger); }
+.job-head { display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; }
+.job-clock { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.jsteps { list-style: none; margin: .6rem 0; padding: 0; display: flex; gap: .4rem 1.2rem; flex-wrap: wrap; }
+.jstep { color: var(--muted); }
+.jstep.now { color: var(--ink); font-weight: 600; }
+.jstep.done { color: var(--ok); }
+.job-hint { line-height: 1.45; }
+.job-late { margin-top: .5rem; color: var(--warning); }
+.job-actions { display: flex; gap: .75rem; align-items: center; margin-top: .75rem; flex-wrap: wrap; }
+
+.chip.run { display: inline-flex; align-items: center; background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+
+/* Английские слова, которых нет в материалах: видны у тезиса и рядом с выгрузкой.
+   Строка у тезиса видна всегда, а не только при правке, — иначе их легко пропустить. */
+mark.latin { background: var(--warning-bg); color: var(--warning); padding: 0 .15em; border-radius: 3px; }
+.foreign-note { margin-top: .25rem; }
+
+/* Вариант «Искры» не применён: тезисы поправили за время прогона, решает человек. */
+.job-box.warn { background: var(--warning-bg); border-color: var(--warning); }
+.draft-list { max-height: 50vh; overflow: auto; padding-left: 1.4rem; line-height: 1.45; }
+.draft-list li { margin-bottom: .35rem; }
+
+/* Варианты «Искры», не вошедшие в текст: к ним можно вернуться. */
+.drafts { margin-top: .75rem; font-size: .88rem; color: var(--muted); }

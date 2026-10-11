@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "work-portal-dev",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["/Users/alexa/Claude/Рабочие проекты/portal/scripts/dev_stack.sh"],
+      "port": 8080
+    }
+  ]
+}

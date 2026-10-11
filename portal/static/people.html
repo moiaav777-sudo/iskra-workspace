@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Люди — Рабочее пространство</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/base.css?v=624e29a4">
+<link rel="stylesheet" href="/static/portal.css?v=cc825a31">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="topbar"><div class="in">
+  <a class="brand" href="/"><img class="mark" src="/static/brand/mark.svg" alt=""><span>Рабочее пространство</span></a>
+  <nav class="topnav" id="topnav"></nav>
+</div></header>
+<!-- Реестр внешних людей: участники и докладчики совещаний. Один на всё пространство —
+     его пополняют «Повестка», «Совещание», «Бриф», и из него же они подсказывают. -->
+<main>
+  <h1 style="margin-bottom:4px">Люди</h1>
+  <p class="muted" id="lead"></p>
+  <div id="msg" class="msg" hidden></div>
+  <input type="search" id="q" placeholder="Фамилия, должность или ведомство" autocomplete="off" style="max-width:420px">
+  <div class="card table-wrap" style="margin-top:var(--gap-m)">
+    <table>
+      <thead><tr><th>ФИО</th><th>Должность</th><th>Ведомство</th><th></th></tr></thead>
+      <tbody id="people"></tbody>
+    </table>
+    <p class="muted small" id="empty" hidden></p>
+  </div>
+</main>
+<script src="/static/workspace-header.js?v=7151576f" data-bar="off" defer></script>
+<script src="/static/portal.js?v=b46e709f"></script>
+<script src="/static/people.js?v=7f05e3ec"></script>
+</body>
+</html>

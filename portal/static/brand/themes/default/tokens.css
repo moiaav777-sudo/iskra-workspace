@@ -1,0 +1,88 @@
+/* Тема «по умолчанию» — синяя палитра рабочего пространства (решение пользователя 18.09).
+   Файл целиком встаёт в portal/static/base.css между маркерами BRAND-TOKENS (portal/ops/apply_brand.sh). */
+:root {
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+:root {
+  /* фирменные цвета */
+  --brand-900: #062a5f; --brand-700: #144696; --brand-200: #99c2ff;
+
+  /* поверхности и границы */
+  --bg: #f4f6fa; --surface: #ffffff; --surface-2: #eef1f6;
+  --border: #dde2ea; --border-strong: #c5ccd8;
+
+  /* текст */
+  --text: #232832; --text-2: #414b5f; --text-muted: #5b6477;
+
+  /* действия */
+  --accent: #144696; --accent-hover: #062a5f; --accent-bg: rgba(20,70,150,.08);
+  --link: var(--accent);
+
+  /* общая шапка (тёмная полоса сверху у портала и всех сервисов) */
+  --bar-bg: #062a5f; --bar-text: #ffffff; --bar-link: #dbe7ff; --bar-muted: #b9c9e8; --bar-dim: #6f86ad;
+  --bar-hover: rgba(255,255,255,.12);
+
+  /* состояния */
+  --success: #2f7d32; --success-bg: #eef7ee;
+  --warning: #9a5b00; --warning-bg: #fff6e5;
+  --danger: #c62828; --danger-bg: #fdeeee;
+
+  /* формы */
+  --radius-s: 6px; --radius-m: 10px; --radius-pill: 999px;
+  --shadow: 0 1px 2px rgba(6,42,95,.05), 0 4px 14px rgba(6,42,95,.07);
+  --shadow-sm: 0 1px 2px rgba(6,42,95,.05);
+  --shadow-md: 0 1px 2px rgba(6,42,95,.05), 0 4px 12px rgba(6,42,95,.07);
+  --ease: cubic-bezier(.16,1,.3,1);
+
+  /* прежние имена сервисов — чтобы не переписывать их правила целиком */
+  --ink: var(--text); --ink-2: var(--text-2); --ink-3: var(--text-muted);
+  --muted: var(--text-muted); --blue: var(--brand-900);
+  --line: var(--border); --line-strong: var(--border-strong);
+  --card: var(--surface); --ground: var(--bg); --sunk: var(--surface-2);
+  --red: var(--danger); --bad: var(--danger); --bad-soft: var(--danger-bg);
+  --ok: var(--success); --ok-soft: var(--success-bg);
+  --accent-ink: #ffffff; --accent-soft: var(--accent-bg);
+  --radius: var(--radius-m);
+
+  /* жёлтая подсветка «не подтверждено справкой» в «Брифе» — смысл, а не оформление */
+  --mark: #fff0a6; --mark-line: #e3c84a; --warn-ink: var(--warning);
+
+  color-scheme: light;
+}
+
+/* Тёмные значения нужны дважды: для системной темы и для переключателя.
+   Держим их рядом, чтобы не разъехались. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1117; --surface: #161b24; --surface-2: #1d2430;
+    --border: #2a3342; --border-strong: #3a4557;
+    --text: #e8ecf3; --text-2: #b8c1d1; --text-muted: #8f9aad;
+    --accent: #8fb6ff; --accent-hover: #b3cdff; --accent-bg: rgba(143,182,255,.12);
+    --success: #7bd67f; --success-bg: rgba(123,214,127,.1);
+    --warning: #f5c26b; --warning-bg: rgba(245,194,107,.1);
+    --danger: #ff8a80; --danger-bg: rgba(255,138,128,.1);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.3);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+    --shadow-md: 0 1px 2px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.3);
+    --accent-ink: #0d1117;
+    --mark: #4a4012; --mark-line: #8c7a2a;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117; --surface: #161b24; --surface-2: #1d2430;
+  --border: #2a3342; --border-strong: #3a4557;
+  --text: #e8ecf3; --text-2: #b8c1d1; --text-muted: #8f9aad;
+  --accent: #8fb6ff; --accent-hover: #b3cdff; --accent-bg: rgba(143,182,255,.12);
+  --success: #7bd67f; --success-bg: rgba(123,214,127,.1);
+  --warning: #f5c26b; --warning-bg: rgba(245,194,107,.1);
+  --danger: #ff8a80; --danger-bg: rgba(255,138,128,.1);
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.3);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+  --shadow-md: 0 1px 2px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.3);
+  --accent-ink: #0d1117;
+  --mark: #4a4012; --mark-line: #8c7a2a;
+  color-scheme: dark;
+}

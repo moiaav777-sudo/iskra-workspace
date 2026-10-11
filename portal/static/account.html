@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Мой профиль — Рабочее пространство</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/base.css?v=624e29a4">
+<link rel="stylesheet" href="/static/portal.css?v=cc825a31">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="topbar"><div class="in">
+  <a class="brand" href="/"><img class="mark" src="/static/brand/mark.svg" alt=""><span>Рабочее пространство</span></a>
+  <nav class="topnav" id="topnav"></nav>
+</div></header>
+<main class="narrow">
+  <h1>Мой профиль</h1>
+  <div id="force" class="msg warn" hidden>Перед началом работы задайте свой пароль. Временный пароль больше не подойдёт.</div>
+  <p class="muted" id="me-line"></p>
+
+  <!-- Кто человек в пространстве: имя, должность и место в лестнице подчинения.
+       Должность нигде больше не заводится — её пишет сам человек, и по ней его узнают
+       в списках быстрее, чем по фамилии. Уровней три (contract: MAX_CHAIN). -->
+  <section class="card" id="whoami">
+    <h2>Кто я в пространстве</h2>
+    <div id="me-msg" class="msg" hidden></div>
+    <div class="me-grid">
+      <div>
+        <label for="my-name">ФИО</label>
+        <input type="text" id="my-name" autocomplete="name" maxlength="200">
+        <label for="my-position">Должность</label>
+        <input type="text" id="my-position" maxlength="200" placeholder="Например: начальник отдела общего образования">
+        <p class="muted small" style="margin:6px 0 0">Должность видна коллегам в списках и вам в шапке.</p>
+        <div class="row" style="margin-top:14px"><button class="btn" type="button" id="my-save">Сохранить</button></div>
+      </div>
+      <div class="ladder" id="ladder"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Смена пароля</h2>
+    <form id="pw-form">
+      <input type="text" autocomplete="username" id="pw-user" hidden>
+      <label for="old-pw">Текущий пароль</label>
+      <input type="password" id="old-pw" autocomplete="current-password" required>
+      <label for="new-pw">Новый пароль</label>
+      <input type="password" id="new-pw" autocomplete="new-password" required minlength="10">
+      <p class="muted small" style="margin:6px 0 0">Не короче 10 символов и без логина внутри. Удобно взять фразу из нескольких слов.</p>
+      <label for="new-pw2">Новый пароль ещё раз</label>
+      <input type="password" id="new-pw2" autocomplete="new-password" required>
+      <div id="pw-msg" class="msg" hidden></div>
+      <div class="row" style="margin-top:14px"><button class="btn" type="submit">Сменить пароль</button></div>
+    </form>
+  </section>
+
+  <section class="card" style="margin-top:16px" id="totp-card">
+    <h2>Двухфакторная проверка</h2>
+    <p class="muted">При входе, кроме пароля, портал спросит шестизначный код из приложения на телефоне: «Яндекс Ключ», Google Authenticator, Microsoft Authenticator или любого похожего.</p>
+    <div id="totp-msg" class="msg" hidden></div>
+    <div id="totp-off" hidden>
+      <button class="btn" type="button" id="totp-start">Включить</button>
+    </div>
+    <div id="totp-setup" hidden>
+      <ol class="small">
+        <li>Откройте приложение-аутентификатор и отсканируйте QR-код.</li>
+        <li>Если сканировать нечем — добавьте ключ вручную: <code class="key" id="totp-secret"></code></li>
+        <li>Введите код, который покажет приложение.</li>
+      </ol>
+      <div class="qr" id="qr-box"><img id="qr" alt="QR-код для приложения-аутентификатора"></div>
+      <label for="totp-code">Код из приложения</label>
+      <div class="row"><input type="text" id="totp-code" inputmode="numeric" maxlength="7" style="max-width:160px"><button class="btn" type="button" id="totp-confirm">Подтвердить</button></div>
+    </div>
+    <div id="totp-on" hidden>
+      <p><span class="chip ok">включена</span></p>
+      <label for="totp-off-code">Чтобы отключить, введите текущий код</label>
+      <div class="row"><input type="text" id="totp-off-code" inputmode="numeric" maxlength="7" style="max-width:160px"><button class="btn danger" type="button" id="totp-disable">Отключить</button></div>
+    </div>
+  </section>
+
+  <!-- Документы приходят в мессенджере, чаще всего на телефон. Ключ позволяет быстрой
+       команде положить файл в «Приёмную» хранилища, не вводя пароль и не проходя проверку. -->
+  <section class="card" style="margin-top:16px" id="inbox-card" hidden>
+    <h2>Отправка документов с телефона</h2>
+    <p class="muted">Ключ приёмной нужен быстрой команде на телефоне: «Поделиться» → «Материалы»,
+      и документ ложится в приёмную хранилища. Ключ только кладёт документы — он ничего не читает
+      и ничего не меняет. Потеряли телефон — отзовите ключ, старый сразу перестанет работать.</p>
+    <div id="inbox-msg" class="msg" hidden></div>
+    <div id="inbox-none">
+      <button class="btn" type="button" id="inbox-new">Получить ключ</button>
+    </div>
+    <div id="inbox-have" hidden>
+      <label for="inbox-key">Ключ</label>
+      <code class="key" id="inbox-key"></code>
+      <label for="inbox-url" style="margin-top:12px">Адрес для быстрой команды</label>
+      <code class="key" id="inbox-url"></code>
+      <div class="row" style="margin-top:14px">
+        <button class="btn ghost" type="button" id="inbox-copy">Скопировать ключ</button>
+        <button class="btn ghost" type="button" id="inbox-again">Выдать новый</button>
+        <button class="btn danger" type="button" id="inbox-drop">Отозвать</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:16px">
+    <h2>Сеансы</h2>
+    <p class="muted">Если вы входили с чужого компьютера или потеряли устройство — завершите вход везде.</p>
+    <button class="btn ghost" type="button" id="logout-all">Выйти на всех устройствах</button>
+  </section>
+</main>
+<script src="/static/workspace-header.js?v=7151576f" data-bar="off" defer></script>
+<script src="/static/portal.js?v=b46e709f"></script>
+<script src="/static/account.js?v=dac5c18e"></script>
+</body>
+</html>

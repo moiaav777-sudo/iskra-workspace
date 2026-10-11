@@ -1,0 +1,6 @@
+# Версии FastAPI/uvicorn как у «Модератора» на ПК (Python 3.12).
+fastapi==0.115.14
+starlette==0.46.2
+pydantic==2.13.5
+uvicorn[standard]==0.30.6
+segno==1.6.6

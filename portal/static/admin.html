@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Администрирование — Рабочее пространство</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/base.css?v=624e29a4">
+<link rel="stylesheet" href="/static/portal.css?v=cc825a31">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="topbar"><div class="in">
+  <a class="brand" href="/"><img class="mark" src="/static/brand/mark.svg" alt=""><span>Рабочее пространство</span></a>
+  <nav class="topnav" id="topnav"></nav>
+</div></header>
+<main>
+  <h1>Администрирование</h1>
+  <div class="tabs" role="tablist">
+    <button role="tab" data-tab="users" aria-selected="true">Пользователи</button>
+    <button role="tab" data-tab="audit" aria-selected="false">Журнал действий</button>
+    <button role="tab" data-tab="iskra" aria-selected="false">Искра</button>
+    <button role="tab" data-tab="mail" aria-selected="false">Почта</button>
+    <button role="tab" data-tab="people" aria-selected="false">Люди</button>
+    <button role="tab" data-tab="notices" aria-selected="false">Объявления</button>
+    <button role="tab" data-tab="status" aria-selected="false">Состояние</button>
+  </div>
+  <div id="msg" class="msg" hidden></div>
+
+  <!-- Пользователи -->
+  <section data-panel="users">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <p class="muted" style="margin:0">Галочки открывают сотруднику сервис и сохраняются сразу. Внутри сервиса сотрудники видят все материалы, каждое изменение записывается в журнал.</p>
+      <button class="btn" type="button" id="add-user">＋ Добавить сотрудника</button>
+    </div>
+    <div class="card table-wrap">
+      <table>
+        <thead><tr><th>Сотрудник</th><th>Роль</th><th>Руководитель</th><th>Сервисы</th><th>Защита</th><th>Последний вход</th><th></th></tr></thead>
+        <tbody id="users"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Журнал -->
+  <section data-panel="audit" hidden>
+    <form class="card" id="audit-filter" style="margin-bottom:14px">
+      <div class="row" style="align-items:flex-end">
+        <div style="flex:1 1 150px"><label for="f-login">Сотрудник</label><select id="f-login"><option value="">Все</option></select></div>
+        <div style="flex:1 1 150px"><label for="f-service">Сервис</label><select id="f-service"><option value="">Все</option><option value="portal">Портал</option></select></div>
+        <div style="flex:1 1 130px"><label for="f-from">С</label><input type="date" id="f-from"></div>
+        <div style="flex:1 1 130px"><label for="f-to">По</label><input type="date" id="f-to"></div>
+        <div style="flex:2 1 200px"><label for="f-q">Поиск</label><input type="search" id="f-q" placeholder="действие, объект, подробности"></div>
+        <button class="btn" type="submit">Показать</button>
+        <a class="btn ghost" id="audit-csv" href="/api/admin/audit.csv">Скачать CSV</a>
+      </div>
+    </form>
+    <div class="card table-wrap">
+      <table>
+        <thead><tr><th>Время</th><th>Сотрудник</th><th>Сервис</th><th>Действие</th><th>Объект и подробности</th></tr></thead>
+        <tbody id="audit"></tbody>
+      </table>
+      <div class="row" style="justify-content:space-between;margin-top:12px">
+        <span class="muted small" id="audit-count"></span>
+        <div class="row"><button class="btn ghost small" id="prev" type="button">← Новее</button><button class="btn ghost small" id="next" type="button">Старее →</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Искра -->
+  <section data-panel="iskra" hidden>
+    <div class="card narrow">
+      <h2>Ключ Искры</h2>
+      <p class="muted">Один ключ на всё пространство: портал («Спросить Искру»), «Совещание», «Бриф», A3, «Тезисы», «Транскрибатор» и «Объективки». После замены он сразу начинает работать везде, перезапуск не нужен.</p>
+      <div id="iskra-status"></div>
+      <label for="iskra-key">Новый ключ</label>
+      <input type="password" id="iskra-key" autocomplete="off" spellcheck="false">
+      <label for="iskra-expires" style="margin-top:10px">Действует до (для ключа, который вводите или который уже стоит)</label>
+      <input type="date" id="iskra-expires" style="max-width:220px">
+      <p class="muted small">Дата из окна «API-ключи» в Искре. Ключ там живёт от 7 до 365 дней, по умолчанию 30, и Искра сама срок не сообщает — за неделю до конца портал предупредит на главной, здесь и в суточном отчёте. При выпуске ключа выбирайте 365 дней.</p>
+      <div class="row" style="margin-top:14px"><button class="btn" id="iskra-save" type="button">Заменить ключ</button>
+        <button class="btn" id="iskra-expires-save" type="button" style="background:transparent;color:var(--accent,#2b5fd9);border:1px solid currentColor">Сохранить только срок</button></div>
+      <p class="muted small">Сначала выпустите новый ключ в кабинете Искры, вставьте его сюда вместе с датой окончания, затем отзовите старый.</p>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h2 style="margin:0">Расход</h2>
+        <label for="usage-month" class="visually-hidden">Месяц</label>
+        <select id="usage-month" style="width:auto"></select>
+      </div>
+      <p class="muted small">Считается по журналу: сервис записывает расход вместе с самим действием. Видно только то, что сервисы успели сообщить.</p>
+      <div id="usage"></div>
+    </div>
+  </section>
+  <!-- Почта: с неё уходят логин и временный пароль (решение пользователя 21.09) -->
+  <section data-panel="mail" hidden>
+    <form class="card narrow" id="mail-form">
+      <h2>Почта для учётных данных</h2>
+      <p class="muted">С этого ящика новый сотрудник получит адрес портала, логин и временный пароль.
+        Удобнее завести отдельный ящик, например на Яндексе.</p>
+      <div id="mail-state"></div>
+      <label for="m-user">Ящик отправителя</label>
+      <input type="email" id="m-user" autocomplete="off" spellcheck="false" placeholder="portal@yandex.ru">
+      <label for="m-pass">Пароль приложения</label>
+      <input type="password" id="m-pass" autocomplete="new-password" spellcheck="false">
+      <p class="muted small" style="margin:6px 0 0">Не пароль от ящика, а отдельный пароль для программ: Яндекс ID →
+        «Безопасность» → «Пароли приложений» → «Почта». Если пароль уже сохранён, поле можно оставить пустым.</p>
+      <details style="margin-top:12px">
+        <summary class="small">Сервер и подпись</summary>
+        <label for="m-host">Сервер SMTP</label>
+        <input type="text" id="m-host" spellcheck="false" placeholder="подставится сам для Яндекса, Mail.ru, Gmail">
+        <label for="m-port">Порт</label>
+        <input type="text" id="m-port" inputmode="numeric" value="465">
+        <label for="m-from">Имя отправителя</label>
+        <input type="text" id="m-from" placeholder="Рабочее пространство">
+      </details>
+      <div class="row" style="margin-top:14px"><button class="btn" type="submit">Сохранить</button></div>
+    </form>
+    <form class="card narrow" id="mail-test" style="margin-top:16px">
+      <h2>Проверка</h2>
+      <label for="m-to">Отправить проверочное письмо на</label>
+      <div class="row" style="flex-wrap:nowrap"><input type="email" id="m-to" style="margin:0"><button class="btn ghost" type="submit">Отправить</button></div>
+    </form>
+  </section>
+
+  <!-- Объявления: полоса под шапкой во всех сервисах (решение пользователя 02.10) -->
+  <section data-panel="notices" hidden>
+    <form class="card narrow" id="nt-form" style="margin-bottom:var(--gap-m)">
+      <h2>Новое объявление</h2>
+      <p class="muted small">Появится полосой под шапкой во всех сервисах в течение 30 секунд. Сотрудник может
+        скрыть его у себя; «Плановые работы» скрыть нельзя.</p>
+      <label for="nt-text">Текст</label>
+      <textarea id="nt-text" rows="2" maxlength="500" placeholder="Например: в пятницу с 18:00 до 18:30 — плановые работы, сохраните документы заранее"></textarea>
+      <div class="row">
+        <div style="flex:1 1 160px"><label for="nt-kind">Вид</label>
+          <select id="nt-kind">
+            <option value="info">Сообщение</option>
+            <option value="warning">Предупреждение</option>
+            <option value="maintenance">Плановые работы</option>
+            <option value="update">Обновление</option>
+          </select></div>
+        <div style="flex:1 1 160px"><label for="nt-service">Где показать</label>
+          <select id="nt-service"><option value="">Во всех сервисах</option></select></div>
+      </div>
+      <label for="nt-until">Показывать до</label>
+      <div class="row" style="flex-wrap:nowrap;align-items:center">
+        <input type="datetime-local" id="nt-until" style="margin:0">
+        <label class="small" style="margin:0;white-space:nowrap"><input type="checkbox" id="nt-forever" checked> до снятия</label>
+      </div>
+      <div class="row" style="margin-top:14px"><button class="btn" type="submit" id="nt-save">Опубликовать</button></div>
+    </form>
+    <div class="card table-wrap">
+      <h2>Объявления</h2>
+      <table>
+        <thead><tr><th>Текст</th><th>Вид</th><th>Где</th><th>Срок</th><th>Кто</th><th></th></tr></thead>
+        <tbody id="nt-rows"></tbody>
+      </table>
+      <p class="muted small">Объявления выкладки («Через 1 минуту будет обновление…», «Обновлено: …») ставит и снимает
+        сама выкладка — отсюда их не снять, они уходят по сроку.</p>
+    </div>
+  </section>
+
+  <!-- Состояние -->
+  <!-- Реестр людей: все ФИО с должностями. Решение пользователя 21.09 после
+       «Кадошникова Павела»: опечатка разбора осела в реестре рядом с правильной записью. -->
+  <section data-panel="people" hidden>
+    <!-- Умная загрузка (решение пользователя 21.09): в реестр попадает только отмеченное и
+         проверенное человеком, от его имени, с файлом-источником. -->
+    <div class="card" style="margin-bottom:var(--gap-m)">
+      <h2>Загрузить списки участников</h2>
+      <p class="muted small">Выберите один или несколько файлов Word (.docx). Портал найдёт людей и покажет их
+        здесь — ничего не запишет, пока вы не проверите и не нажмёте «Добавить отмеченных». Повторы
+        между файлами сливаются; кто уже есть в реестре — отмечен.</p>
+      <div class="row">
+        <label class="btn ghost" for="imp-files" style="margin:0">Выбрать файлы…</label>
+        <input type="file" id="imp-files" accept=".docx" multiple hidden>
+        <span class="muted small" id="imp-state"></span>
+      </div>
+      <div id="imp-box" hidden style="margin-top:var(--gap-s)">
+        <div class="table-wrap"><table>
+          <thead><tr><th><input type="checkbox" id="imp-all" aria-label="Отметить всех"></th>
+            <th>ФИО</th><th>Должность</th><th>Ведомство</th><th>В реестре</th></tr></thead>
+          <tbody id="imp-rows"></tbody>
+        </table></div>
+        <div class="row" style="margin-top:var(--gap-s);justify-content:flex-end">
+          <button class="btn ghost" type="button" id="imp-cancel">Отмена</button>
+          <button class="btn" type="button" id="imp-save">Добавить отмеченных</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" id="dup-card" hidden style="margin-bottom:var(--gap-m)">
+      <h2>Похоже на одного человека</h2>
+      <p class="muted small">Те же инициалы, фамилия отличается на одну-две буквы — почти всегда опечатка
+        разбора или диктовки. Выберите, какую запись оставить: вторая сольётся в неё, её должность,
+        если отличалась, останется вариантом.</p>
+      <div id="dup-list"></div>
+    </div>
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:var(--gap-s)">
+      <input type="search" id="ppl-q" placeholder="Фамилия, должность или ведомство" style="max-width:360px;margin:0">
+      <span class="muted small" id="ppl-count"></span>
+    </div>
+    <div class="card table-wrap">
+      <table>
+        <thead><tr><th>ФИО</th><th>Должность</th><th>Ведомство</th><th>Кто внёс и откуда</th></tr></thead>
+        <tbody id="ppl-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section data-panel="status" hidden>
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <p class="muted" style="margin:0">Портал спрашивает каждый сервис на своём ПК. Данные сотрудников здесь не показываются — только живость, версия и размер файлов.</p>
+      <button class="btn ghost" type="button" id="status-refresh">Обновить</button>
+    </div>
+    <div class="tiles" id="status-services"></div>
+    <div class="card" style="margin-top:16px"><h2>Резервные копии</h2><div id="status-backup"></div></div>
+    <div class="card" style="margin-top:16px"><h2>Место и уведомления</h2><div id="status-misc"></div></div>
+  </section>
+</main>
+
+<dialog id="user-dlg">
+  <form id="user-form" method="dialog">
+    <h2 id="user-dlg-title">Новый сотрудник</h2>
+    <div id="u-msg" class="msg" hidden></div>
+    <label for="u-name">ФИО</label>
+    <input type="text" id="u-name" placeholder="Иванова Мария Сергеевна">
+    <div id="u-login-box">
+      <label for="u-login">Логин</label>
+      <input type="text" id="u-login" autocapitalize="none" spellcheck="false" placeholder="составится из фамилии">
+      <p class="muted small" style="margin:6px 0 0">Фамилия латиницей; если такой уже есть — с инициалами. Можно поправить.</p>
+    </div>
+    <label for="u-email">Почта</label>
+    <input type="email" id="u-email" autocomplete="off" spellcheck="false" placeholder="ivanova@example.ru">
+    <label for="u-role">Роль</label>
+    <select id="u-role">
+      <option value="employee">Сотрудник — работает во всех открытых ему сервисах</option>
+      <option value="admin">Администратор — все сервисы, пользователи, журнал</option>
+    </select>
+    <label for="u-manager">Непосредственный руководитель</label>
+    <select id="u-manager"><option value="">нет</option></select>
+    <p class="muted small" style="margin:6px 0 0">Руководитель видит в списках документы своих сотрудников. Глубина подчинения — не больше трёх уровней.</p>
+    <label>Доступ к сервисам</label>
+    <div class="checks" id="u-services"></div>
+    <p class="muted small" id="u-pw-box" style="margin:14px 0 0">Временный пароль портал придумает сам и отправит на почту
+      вместе с логином и адресом портала. При первом входе сотрудник задаст свой пароль.</p>
+    <div class="row" style="margin-top:18px;justify-content:flex-end">
+      <button class="btn ghost" type="button" id="u-cancel">Отмена</button>
+      <button class="btn" type="submit" id="u-save">Сохранить</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Письмо не ушло: учётные данные показываем один раз, чтобы администратор передал их сам -->
+<dialog id="cred-dlg">
+  <h2>Передайте сотруднику</h2>
+  <p class="msg" id="cred-why"></p>
+  <table><tbody>
+    <tr><th>Адрес</th><td id="cred-url"></td></tr>
+    <tr><th>Логин</th><td id="cred-login"></td></tr>
+    <tr><th>Временный пароль</th><td><code id="cred-pw" style="font-size:var(--text-h2)"></code></td></tr>
+  </tbody></table>
+  <p class="muted small">Пароль показывается один раз. После закрытия окна его не восстановить — только выдать новый.</p>
+  <div class="row" style="margin-top:16px;justify-content:flex-end">
+    <button class="btn ghost" type="button" id="cred-copy">Скопировать</button>
+    <button class="btn" type="button" id="cred-close">Готово</button>
+  </div>
+</dialog>
+
+<!-- Удаление насовсем: подтверждается вводом логина, одной кнопки мало -->
+<dialog id="del-dlg">
+  <form id="del-form" method="dialog">
+    <h2>Удалить <span id="del-name"></span>?</h2>
+    <div id="del-msg" class="msg" hidden></div>
+    <p>Учётная запись удалится насовсем: войти по ней будет нельзя, вернуть её тоже.
+      Журнал и документы, которые человек сделал, останутся с его логином.</p>
+    <p class="muted small">Если человек может вернуться, лучше «Заблокировать» — это обратимо.</p>
+    <label for="del-confirm">Для подтверждения впишите логин <strong id="del-login"></strong></label>
+    <input type="text" id="del-confirm" autocomplete="off" autocapitalize="none" spellcheck="false">
+    <div class="row" style="margin-top:18px;justify-content:flex-end">
+      <button class="btn ghost" type="button" id="del-cancel">Отмена</button>
+      <button class="btn danger" type="submit" id="del-go" disabled>Удалить навсегда</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="act-dlg">
+  <h2>Действия: <span id="act-login"></span></h2>
+  <div id="act-list" style="display:grid;gap:8px"></div>
+  <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn ghost" type="button" id="act-cancel">Закрыть</button></div>
+</dialog>
+
+<dialog id="pw-dlg">
+  <form id="pw-form" method="dialog">
+    <h2>Временный пароль для <span id="pw-login"></span></h2>
+    <div id="pw-msg" class="msg" hidden></div>
+    <p id="pw-where"></p>
+    <p class="muted small">Все текущие входы сотрудника завершатся, при следующем входе он задаст свой пароль.</p>
+    <div class="row" style="margin-top:18px;justify-content:flex-end">
+      <button class="btn ghost" type="button" id="pw-cancel">Отмена</button>
+      <button class="btn" type="submit">Выдать пароль</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/static/workspace-header.js?v=7151576f" data-bar="off" defer></script>
+<script src="/static/portal.js?v=b46e709f"></script>
+<script src="/static/admin.js?v=e95a9ea4"></script>
+</body>
+</html>

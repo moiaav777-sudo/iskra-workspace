@@ -1,0 +1,11 @@
+# Версии совпадают с соседями (theses, transcriber, agenda) и с тем, что стоит на сервере (Python 3.12).
+# Нового в общий venv не нужно. python-docx сборкой не используется (Word собирается своим кодом,
+# см. CLAUDE.md → «Сборка Word»), но стоит у соседей и нужен тестам как независимая проверка файла.
+fastapi==0.115.14
+starlette==0.46.2
+pydantic==2.13.5
+uvicorn[standard]==0.30.6
+python-multipart==0.0.32
+python-docx==1.2.0
+# PDF: pdftotext, если есть; иначе PyMuPDF (pymupdf==1.28.2, стоит у «Тезисов»), если импортируется.
+# Старые форматы (.doc, .xls, .ppt, .rtf, .odt) — LibreOffice (soffice) на сервере; без него — понятная ошибка.

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Объективки</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Типографика и палитра — общие, у портала (контракт п. 5б); адреса абсолютные: это файлы портала. -->
+<link rel="stylesheet" href="/static/base.css">
+<link rel="stylesheet" href="static/style.css?v=4">
+<link rel="stylesheet" href="/static/workspace.css">
+<script src="/static/workspace-header.js" data-service="Объективки" defer></script>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="10" r="2.2"/><path d="M5.5 16c.6-1.6 1.7-2.4 3-2.4s2.4.8 3 2.4M14 9h4M14 12.5h4"/></svg>
+      Объективки
+    </div>
+    <div class="actions" id="top-actions">
+      <button class="btn ghost" id="btn-batch" type="button" title="Много документов о людях — карточки по нашей форме и один файл"><span class="long">Переработать и объединить</span><span class="short">Пакет</span></button>
+      <button class="btn-primary" id="btn-new" type="button"><span class="long">Новая объективка</span><span class="short">Новая</span></button>
+    </div>
+  </div>
+</div>
+<div class="wrap">
+  <div class="grid">
+    <div class="col">
+      <div class="card">
+        <h2>Реестр <button class="link-btn" id="archive-toggle" type="button" style="float:right">Архив</button></h2>
+        <div class="scope" id="scope" role="radiogroup" aria-label="Чьи объективки показывать">
+          <button type="button" role="radio" data-scope="mine">Мои</button>
+          <button type="button" role="radio" data-scope="team">Отдела</button>
+          <button type="button" role="radio" data-scope="all">Все</button>
+        </div>
+        <input id="search" type="search" placeholder="Поиск по фамилии или должности" autocomplete="off">
+        <div id="sel-bar" class="sel-bar" hidden>
+          <span id="sel-count"></span>
+          <button class="btn" id="btn-merge-sel" type="button">Объединить выбранные</button>
+        </div>
+        <div id="registry"><div class="empty">Загрузка…</div></div>
+        <button class="link-btn" id="btn-merge-files" type="button">Объединить файлы объективок…</button>
+      </div>
+    </div>
+    <div class="col" id="workspace">
+      <div class="card"><div class="empty">Выберите объективку в реестре или создайте новую.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Выбор мероприятия: список у «Совещания» (ближайшие сверху), папка — у «Материалов» (контракт п. 9). -->
+<dialog id="meet-dlg" class="dlg">
+  <h3>Приложить к мероприятию</h3>
+  <p class="muted" id="meet-lead"></p>
+  <label for="meet-pick">Мероприятие</label>
+  <select id="meet-pick"></select>
+  <div class="muted" id="meet-full"></div>
+  <div id="meet-new" hidden>
+    <div class="row2">
+      <div><label for="meet-date">Дата</label><input id="meet-date" placeholder="ДД.ММ.ГГГГ"></div>
+      <div><label for="meet-title">Название</label><input id="meet-title" placeholder="О чём мероприятие"></div>
+    </div>
+  </div>
+  <div class="err" id="meet-err" hidden></div>
+  <div class="dlg-actions">
+    <button class="btn" id="meet-go" type="button">Приложить</button>
+    <button class="btn ghost" id="meet-cancel" type="button">Отмена</button>
+  </div>
+</dialog>
+<!-- «Добавить в реестр людей?» — ФИО нет в реестре портала (контракт п. 5а): решает и пишет человек. -->
+<dialog id="people-dlg" class="dlg">
+  <h3>Добавить в реестр людей?</h3>
+  <p class="muted">Этого человека нет в реестре людей портала. Проверьте написание и должность — автором записи будете вы.</p>
+  <label for="people-name">ФИО</label><input id="people-name">
+  <label for="people-role">Должность</label><input id="people-role">
+  <label for="people-org">Ведомство</label><input id="people-org">
+  <div class="err" id="people-err" hidden></div>
+  <div class="dlg-actions">
+    <button class="btn" id="people-go" type="button">Добавить</button>
+    <button class="btn ghost" id="people-cancel" type="button">Не добавлять</button>
+  </div>
+</dialog>
+<div id="toasts"></div>
+<script src="static/app.js?v=4"></script>
+</body>
+</html>

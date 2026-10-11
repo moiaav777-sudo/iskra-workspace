@@ -1,0 +1,23 @@
+# окружения и кэши
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+node_modules/
+
+# настройки и данные локального запуска (run.sh / docker compose)
+.env
+data/
+*/data/
+*/.env
+*/settings.json
+logs/
+*.log
+*.db
+*.db-*
+*.pid
+.requirements.sha
+
+# документы, которые сервисы кладут рядом с собой, если их папки не переназначены
+brief/Результаты/
+materials/Хранилище/

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Транскрибатор</title>
+<link rel="stylesheet" href="/static/base.css">
+<link rel="stylesheet" href="static/style.css">
+<link rel="stylesheet" href="/static/workspace.css">
+<script src="/static/workspace-header.js" data-service="Транскрибатор" defer></script>
+</head>
+<body data-role="{{ROLE}}" data-name="{{NAME}}" data-links="{{LINKS}}" data-max-mb="{{MAX_MB}}">
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+        <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>
+      </svg>
+      Транскрибатор
+    </div>
+    <div class="actions">
+      <span id="engine-note" class="engine-note" hidden></span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="drop" id="drop">
+    <h2>Разбор записи с «Искрой»</h2>
+    <p class="lead">Загрузите запись совещания или разговора — «Искра» расшифрует её слово в слово,
+       сделает саммари и перечень поручений. Каждый документ можно поправить и скачать в Word.
+       Файл записи после разбора удаляется с сервера.</p>
+    <div class="dropzone" id="zone" tabindex="0" role="button" aria-describedby="zone-hint">
+      <div class="dz-title" id="zone-title">Перетащите сюда запись или нажмите, чтобы выбрать (аудио/видео до 500 МБ)</div>
+      <div class="dz-hint" id="zone-hint">MP3, WAV, M4A, OGG, MP4, MOV и другие обычные форматы записи</div>
+      <input type="file" id="file"
+             accept=".mp3,.wav,.m4a,.aac,.ogg,.opus,.flac,.wma,.mp4,.m4v,.mov,.webm,.mkv,.avi" hidden>
+    </div>
+    <div class="drop-actions">
+      <button type="button" id="go" disabled>Разобрать с Искрой</button>
+    </div>
+    <div class="progress" id="progress" hidden>
+      <span class="dot"></span>
+      <span id="progress-text">Загружаю…</span>
+      <button type="button" class="ghost" id="cancel-job">Отменить</button>
+    </div>
+    <div class="error" id="error" hidden></div>
+  </section>
+
+  <section class="list">
+    <div class="list-head">
+      <h2>Записи</h2>
+      <input type="search" id="q" placeholder="Поиск по названию">
+      <label class="check"><input type="checkbox" id="archived"> Архив</label>
+    </div>
+    <div id="cards" class="cards"></div>
+    <p class="empty" id="empty" hidden>Пока ни одной записи. Загрузите первую запись.</p>
+  </section>
+</main>
+
+<dialog id="detail">
+  <h3 id="detail-title">Запись</h3>
+  <div id="detail-meta" class="detail-meta"></div>
+  <div id="detail-error" class="error" hidden></div>
+  <div id="detail-progress" class="progress" hidden>
+    <span class="dot"></span><span id="detail-progress-text"></span>
+  </div>
+
+  <div class="detail-block">
+    <h4>Для документов</h4>
+    <div class="meta-grid">
+      <label>Председатель
+        <input id="meta-chair" placeholder="Например: Д.Н. Чернышенко">
+      </label>
+      <label>Должность
+        <input id="meta-role" placeholder="Заместитель Председателя Правительства Российской Федерации">
+      </label>
+      <label>Дата совещания
+        <input id="meta-date" type="date">
+      </label>
+    </div>
+    <p class="hint">Председатель — подпись «И.О. Фамилия» в конце перечня поручений, должность — шапка
+       заглавными. Пусто — шапки и подписи в перечне нет. Дата — в названиях документов; пусто — день загрузки.</p>
+    <div class="detail-actions">
+      <button type="button" class="ghost" id="save-meta">Сохранить сведения</button>
+    </div>
+  </div>
+
+  <div class="detail-block" id="block-transcript">
+    <h4>Транскрипция <span class="hint">дословно, с таймкодами</span></h4>
+    <textarea id="draft-text" rows="12"></textarea>
+    <div class="detail-actions">
+      <button type="button" id="save-draft">Сохранить правку</button>
+      <a id="dl-transcript" href="#">Скачать Word</a>
+      <a id="dl-txt" href="#">Скачать текст</a>
+    </div>
+  </div>
+
+  <div class="detail-block" id="block-summary">
+    <h4>Саммари</h4>
+    <textarea id="summary-text" rows="8"></textarea>
+    <div class="detail-actions">
+      <button type="button" id="save-summary">Сохранить правку</button>
+      <a id="dl-summary" href="#">Скачать Word</a>
+    </div>
+  </div>
+
+  <div class="detail-block" id="block-orders">
+    <h4>Перечень поручений <span class="hint">срок — ДД.ММ.ГГГГ; нет срока — строки «Срок» в документе не будет</span></h4>
+    <div id="orders-list" class="orders"></div>
+    <p class="hint" id="orders-empty" hidden>Поручений нет.</p>
+    <div class="detail-actions">
+      <button type="button" class="ghost" id="add-order">Добавить поручение</button>
+      <button type="button" id="save-orders">Сохранить поручения</button>
+      <a id="dl-orders" href="#">Скачать Word</a>
+    </div>
+  </div>
+
+  <div class="detail-block" id="block-meeting" hidden>
+    <h4>Совещание</h4>
+    <p id="meeting-line" class="hint"></p>
+    <div class="detail-actions">
+      <button type="button" id="to-meeting">Приложить к совещанию</button>
+      <a id="open-meeting" href="#" target="_blank" rel="noopener" hidden>Открыть совещание</a>
+    </div>
+  </div>
+
+  <div class="detail-actions">
+    <button type="button" class="ghost" id="rebuild">Пересобрать саммари и поручения</button>
+    <button type="button" id="toggle-archive"></button>
+    <button type="button" id="delete-forever" class="danger" hidden>Удалить насовсем</button>
+    <form method="dialog"><button type="submit">Закрыть</button></form>
+  </div>
+</dialog>
+
+<dialog id="attach">
+  <h3>Приложить к совещанию</h3>
+  <p class="hint">Транскрипция, саммари и перечень поручений лягут в «Совещание» на вкладку «Результаты».
+     Совещание выберите из списка или впишите дату и название — его найдёт или заведёт «Совещание».
+     Повторная отправка заменит прежние документы этой записи.</p>
+  <select id="att-pick"><option value="">＋ Новое совещание</option></select>
+  <div class="meta-grid" id="att-new">
+    <label>Дата <input id="att-date" type="date"></label>
+    <label>Название совещания <input id="att-title" placeholder="Полное название совещания"></label>
+  </div>
+  <p class="hint" id="att-note" hidden></p>
+  <div class="detail-actions">
+    <button type="button" id="att-go">Приложить</button>
+    <button type="button" class="ghost" id="att-cancel">Отмена</button>
+  </div>
+</dialog>
+
+<script src="static/meeting.js"></script>
+<script src="static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Вход — Рабочее пространство</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/base.css?v=624e29a4">
+<link rel="stylesheet" href="/static/portal.css?v=cc825a31">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<div class="login-wrap">
+  <form class="card login" id="login-form" autocomplete="on">
+    <div class="brand"><img class="wordmark" src="/static/brand/wordmark.svg" alt=""><span class="brand-product">Рабочее пространство</span></div>
+    <h1>Вход</h1>
+    <div id="msg" class="msg" hidden role="alert"></div>
+    <div id="cred">
+      <label for="login">Логин</label>
+      <input type="text" id="login" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      <label for="password">Пароль</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+    </div>
+    <div id="code-box" hidden>
+      <label for="code">Код из приложения-аутентификатора</label>
+      <input type="text" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" pattern="[0-9 ]*">
+    </div>
+    <button class="btn" type="submit" id="submit">Войти</button>
+    <p class="muted small" style="margin:14px 0 0">Нет доступа или забыли пароль — обратитесь к администратору.</p>
+  </form>
+</div>
+<script src="/static/workspace-header.js?v=7151576f" data-bar="off" defer></script>
+<script src="/static/portal.js?v=b46e709f"></script>
+<script src="/static/login.js?v=1f532e82"></script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+/* Единая шапка рабочего пространства для сервисов (Модератор, Бриф, A3, Повестка).
+   Подключается со стороны портала: <link rel="stylesheet" href="/static/workspace.css">
+   Все имена классов начинаются с ws-, чтобы не пересекаться со стилями сервиса. */
+.ws-bar {
+  background: var(--bar-bg, #062a5f);
+  color: #fff;
+  font: 500 14px/1.4 var(--font);
+  position: sticky;
+  top: 0;
+  z-index: 900;
+}
+.ws-bar__in {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 16px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.ws-bar a { color: var(--bar-link, #dbe7ff); text-decoration: none; border-radius: 6px; padding: 4px 8px; }
+.ws-bar a:hover { background: var(--bar-hover, rgba(255, 255, 255, .12)); color: var(--bar-text, #fff); }
+.ws-bar__home { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--bar-text, #fff); padding-left: 0; }
+.ws-bar__home:hover { color: var(--bar-text, #fff); }
+/* знак — картинка темы (portal/static/brand/mark.svg) */
+.ws-bar__mark { width: 22px; height: 22px; display: block; object-fit: contain; }
+.ws-bar__service { color: var(--bar-muted, #b9c9e8); }
+.ws-bar__service::before { content: "/"; margin-right: 10px; color: var(--bar-dim, #6f86ad); }
+.ws-bar__right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.ws-bar__user { color: var(--bar-muted, #b9c9e8); padding: 0 6px; white-space: nowrap; }
+.ws-bar button.ws-bar__link {
+  font: inherit; color: var(--bar-link, #dbe7ff); background: none; border: 0; cursor: pointer;
+  padding: 4px 8px; border-radius: 6px;
+}
+.ws-bar button.ws-bar__link:hover { background: var(--bar-hover, rgba(255, 255, 255, .12)); color: var(--bar-text, #fff); }
+.ws-bar__burger {
+  display: none;
+  margin-left: auto;
+  width: 44px; height: 44px;
+  font: 18px/1 inherit; color: #fff; background: none; border: 0; border-radius: 8px; cursor: pointer;
+}
+.ws-bar__burger:hover { background: rgba(255, 255, 255, .12); }
+
+/* 860 px, а не 700: на планшете полоса сервиса ломалась на две строки */
+@media (max-width: 860px) {
+  .ws-bar__in { min-height: 48px; }
+  .ws-bar__service, .ws-bar__title { display: none; }
+  .ws-bar__burger { display: block; }
+  /* меню раскрывается на всю ширину: пункты крупные, попасть пальцем легко */
+  .ws-bar__right {
+    display: none;
+    order: 3;
+    width: 100%;
+    margin: 0 -16px;
+    padding: 4px 16px 10px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    background: var(--bar-bg, #062a5f);
+    border-top: 1px solid rgba(255, 255, 255, .15);
+  }
+  .ws-bar.is-open .ws-bar__right { display: flex; }
+  .ws-bar__right a, .ws-bar__right button.ws-bar__link {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    text-align: left;
+  }
+  .ws-bar__user { display: block; padding: 10px 12px 6px; font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; }
+}
+@media print {
+  .ws-bar { display: none !important; }
+}
+
+/* Масштаб текста: две маленькие кнопки рядом с выходом. Базовый размер и есть
+   самый мелкий, поэтому «А−» выключена, пока не увеличили. */
+.ws-bar__scale { display: inline-flex; gap: 2px; align-items: center; }
+.ws-bar__scale .ws-bar__link { min-width: 30px; padding: 4px 6px; border-radius: 6px; font-weight: 600; }
+.ws-bar__scale .ws-bar__link:disabled { opacity: .4; cursor: default; }
+.ws-bar__scale .ws-bar__link:not(:disabled):hover { background: rgba(255,255,255,.16); }

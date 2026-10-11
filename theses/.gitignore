@@ -1,0 +1,10 @@
+.venv/
+data/
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+# Образцы готовых документов — рабочие бумаги пользователя. В репозитории их не держим:
+# вёрстка с них снята в app/template.docx (tools/make_template.py), текста там нет.
+docs/*.docx
+.DS_Store

@@ -1,0 +1,14 @@
+# сборка и мусор
+__pycache__/
+*.pyc
+.DS_Store
+*.zip
+_old/
+
+# будущий сервис: секреты и данные не в репозитории
+service/.env
+service/data/
+service/.venv/
+
+# настройки чата Claude Code: у каждого свои, в релиз не идут
+.claude/settings.json

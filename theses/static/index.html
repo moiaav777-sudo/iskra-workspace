@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тезисы</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/base.css">
+<link href="static/vendor/quill.snow.css" rel="stylesheet">
+<link rel="stylesheet" href="static/style.css?v=2">
+<!-- Общая полоса портала: переход к сервисам, имя пользователя, выход.
+     Адрес абсолютный — это файлы портала, а не сервиса. -->
+<link rel="stylesheet" href="/static/workspace.css">
+<script src="/static/workspace-header.js" data-service="Тезисы" defer></script>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h4M9 9h1"/></svg>
+      Тезисы
+    </div>
+    <div class="actions">
+      <button class="icon-btn" id="theme-toggle" title="Тема" aria-label="Сменить тему" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      </button>
+      <button class="btn-primary" id="btn-new">Новые тезисы</button>
+    </div>
+  </div>
+</div>
+<div class="wrap">
+  <div class="grid">
+    <div class="col">
+      <div class="card">
+        <h2>Тезисы <button class="link-btn" id="archive-toggle" onclick="toggleArchive()" style="float:right;font-weight:600;">Архив</button></h2>
+        <div id="theses-list"><div class="empty">Загрузка…</div></div>
+      </div>
+    </div>
+    <div class="col" id="workspace">
+      <div class="card"><div class="empty">Выберите тезисы из списка или создайте новые.</div></div>
+    </div>
+  </div>
+</div>
+<div id="toasts"></div>
+<!-- Редактор и очистка разметки — те же, что в «Совещании» (копия moderator/static/vendor);
+     общий трек вынесет их в portal/static -->
+<script src="static/vendor/quill.js"></script>
+<script src="static/vendor/purify.min.js"></script>
+<script src="static/app.js?v=5"></script>
+</body>
+</html>

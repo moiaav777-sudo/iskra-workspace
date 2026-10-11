@@ -1,0 +1,146 @@
+/* Цвета и размеры рабочего пространства — один файл на портал и все сервисы.
+
+   Раньше палитра была продублирована в четырёх местах и разъехалась: у портала синяя
+   фирменная, у «Модератора» и «Повестки» серо-графитовая, у «Брифа» бирюзовая. Решением
+   пользователя (18.09) оставлена синяя портала, остальные к ней приведены.
+
+   Файл отдаёт портал, сервисы подключают его первым:
+       <link rel="stylesheet" href="/static/base.css">
+   Свои правила сервиса идут после и могут переопределять что угодно.
+
+   Тёмная тема включается двумя способами и оба поддержаны:
+   - системная (портал, «Бриф») — @media (prefers-color-scheme: dark);
+   - переключателем в шапке сервиса («Модератор», «Повестка») — атрибут data-theme.
+   Явный data-theme="light" сильнее системной темы: человек выбрал светлую — значит светлую.
+*/
+
+/* === BRAND-TOKENS:start — палитра, шрифт и шапка темы; блок меняет portal/ops/apply_brand.sh,
+       исходники тем — portal/static/brand/themes/<тема>/tokens.css. Руками не править. === */
+/* Тема «Искра» — по бренд-листу «Искры» (октябрь 2026): янтарный акцент с чёрным текстом на кнопках,
+   тёплый «бумажный» фон, графитовая тёмная тема, скругления 0,375/0,5 rem, шрифт DM Sans с системным
+   запасным стеком (у DM Sans нет кириллицы — русский текст идёт системным шрифтом, как и предусмотрено
+   стеком бренда). Файл целиком встаёт в portal/static/base.css между маркерами BRAND-TOKENS
+   (portal/ops/apply_brand.sh). */
+:root {
+  --font: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif;
+}
+
+:root {
+  /* фирменные цвета: графит и янтарь */
+  --brand-900: #1D1D1C; --brand-700: #37322F; --brand-200: #FFE29F;
+
+  /* поверхности и границы: тёплая бумага, не чистый белый */
+  --bg: #FBF9F7; --surface: #ffffff; --surface-2: #F6F3F1;
+  --border: #E8E0D9; --border-strong: #D3C8BE;
+
+  /* текст */
+  --text: #171717; --text-2: #3D3D3D; --text-muted: #6E6E6E;
+
+  /* действия: янтарь на светлом только подложкой и кнопкой (чёрный текст на янтаре 8,35:1) */
+  --accent: #F59E0B; --accent-hover: #D97706; --accent-bg: rgba(245,158,11,.14);
+  --link: #AA5C03;
+
+  /* общая шапка: графит, знак белым */
+  --bar-bg: #1D1D1C; --bar-text: #ffffff; --bar-link: #E8E0D9; --bar-muted: #B5AEA7; --bar-dim: #7A7470;
+  --bar-hover: rgba(255,255,255,.12);
+
+  /* состояния */
+  --success: #047857; --success-bg: #E6F4EF;
+  --warning: #AA5C03; --warning-bg: #FFF1CC;
+  --danger: #DC2626; --danger-bg: #FDECEC;
+
+  /* формы: радиусы бренда — кнопки и поля 0,375 rem, карточки 0,5 rem */
+  --radius-s: 6px; --radius-m: 8px; --radius-pill: 999px;
+  --shadow: 0 1px 2px rgba(23,23,23,.05), 0 4px 14px rgba(23,23,23,.06);
+  --shadow-sm: 0 1px 2px rgba(23,23,23,.05);
+  --shadow-md: 0 1px 2px rgba(23,23,23,.05), 0 4px 12px rgba(23,23,23,.06);
+  --ease: cubic-bezier(.16,1,.3,1);
+
+  /* прежние имена сервисов — чтобы не переписывать их правила целиком */
+  --ink: var(--text); --ink-2: var(--text-2); --ink-3: var(--text-muted);
+  --muted: var(--text-muted); --blue: var(--brand-900);
+  --line: var(--border); --line-strong: var(--border-strong);
+  --card: var(--surface); --ground: var(--bg); --sunk: var(--surface-2);
+  --red: var(--danger); --bad: var(--danger); --bad-soft: var(--danger-bg);
+  --ok: var(--success); --ok-soft: var(--success-bg);
+  --accent-ink: #171717; --accent-soft: var(--accent-bg);
+  --radius: var(--radius-m);
+
+  /* жёлтая подсветка «не подтверждено справкой» в «Брифе» — смысл, а не оформление */
+  --mark: #FFE29F; --mark-line: #E2AD32; --warn-ink: var(--warning);
+
+  color-scheme: light;
+}
+
+/* Тёмные значения нужны дважды: для системной темы и для переключателя.
+   Держим их рядом, чтобы не разъехались. Графит #1D1D1C — theme-color сайта «Искры». */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1D1D1C; --surface: #2B2A29; --surface-2: #37322F;
+    --border: #3F3A37; --border-strong: #58524D;
+    --text: #F5F2EF; --text-2: #D6D0CA; --text-muted: #959595;
+    --accent: #E2AD32; --accent-hover: #F4CD74; --accent-bg: rgba(226,173,50,.16);
+    --link: #F4CD74;
+    --bar-bg: #171717; --bar-text: #ffffff; --bar-link: #E8E0D9; --bar-muted: #B5AEA7; --bar-dim: #7A7470;
+    --success: #3DD2A8; --success-bg: rgba(61,210,168,.12);
+    --warning: #F4CD74; --warning-bg: rgba(244,205,116,.12);
+    --danger: #FF4848; --danger-bg: rgba(255,72,72,.12);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.3);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+    --shadow-md: 0 1px 2px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.3);
+    --accent-ink: #171717;
+    --mark: #4A3F12; --mark-line: #8C7A2A;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #1D1D1C; --surface: #2B2A29; --surface-2: #37322F;
+  --border: #3F3A37; --border-strong: #58524D;
+  --text: #F5F2EF; --text-2: #D6D0CA; --text-muted: #959595;
+  --accent: #E2AD32; --accent-hover: #F4CD74; --accent-bg: rgba(226,173,50,.16);
+  --link: #F4CD74;
+  --bar-bg: #171717; --bar-text: #ffffff; --bar-link: #E8E0D9; --bar-muted: #B5AEA7; --bar-dim: #7A7470;
+  --success: #3DD2A8; --success-bg: rgba(61,210,168,.12);
+  --warning: #F4CD74; --warning-bg: rgba(244,205,116,.12);
+  --danger: #FF4848; --danger-bg: rgba(255,72,72,.12);
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.3);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+  --shadow-md: 0 1px 2px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.3);
+  --accent-ink: #171717;
+  --mark: #4A3F12; --mark-line: #8C7A2A;
+  color-scheme: dark;
+}
+/* === BRAND-TOKENS:end === */
+
+/* ── Типографика: одна на портал и все сервисы ──────────────────────────
+   Разбор 20.09 показал, что текст разъехался так же, как когда-то палитра:
+   «Модератор» и «Повестка» открывались в 13,65 px, «Материалы» и «Тезисы» — в 19,5,
+   портал и «Бриф» — в 15, и всё это разными шрифтами. Разница 43 % на соседних вкладках.
+   Теперь размер и шрифт живут здесь, а сервисы берут их переменными и своих не заводят. */
+:root {
+  --text-base: 1rem;       /* основной текст везде */
+  --line-base: 1.5;
+  --text-small: 0.86rem;   /* сноски, подписи под строкой */
+  --text-h1: 1.5rem;
+  --text-h2: 1.05rem;
+  --text-h3: 1rem;
+  /* отступы: одна лесенка на всё пространство, чтобы плотность не разъехалась */
+  --gap-xs: 6px; --gap-s: 10px; --gap-m: 16px; --gap-l: 22px;
+  --card-pad: 16px;
+}
+/* 14 px — рабочая плотность делового инструмента, а не читального зала.
+   Так сделаны GitHub, Atlassian, Ant Design: на экран помещается больше, и текст
+   остаётся разборчивым. Решение пользователя 20.09: «начинать с самого маленького,
+   а кому нужно — увеличат». Увеличение общее для всего пространства и запоминается,
+   см. `workspace-header.js` → масштаб текста. Размеры в сервисах заданы в `rem`,
+   поэтому они следуют за этой строкой сами. */
+html { font-size: 14px; }
+body { font-family: var(--font); font-size: var(--text-base); line-height: var(--line-base); }
+button, input, select, textarea { font-family: inherit; }
+
+/* Шапка карточки: один приём на всё пространство.
+   Было два — мелкие ЗАГЛАВНЫМИ в «Модераторе» и «Материалах», обычные в портале и «Брифе». */
+.card > h2, .card > h3:first-child {
+  font-size: var(--text-h2); font-weight: 600; text-transform: none; letter-spacing: 0;
+}

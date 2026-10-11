@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "a3-stand",
+      "runtimeExecutable": "/Users/alexa/Claude/Рабочие проекты/a3/service/.venv/bin/python",
+      "runtimeArgs": [
+        "-m", "uvicorn", "app.main:app",
+        "--host", "127.0.0.1", "--port", "8940",
+        "--app-dir", "/Users/alexa/Claude/Рабочие проекты/a3/service"
+      ],
+      "port": 8940
+    }
+  ]
+}

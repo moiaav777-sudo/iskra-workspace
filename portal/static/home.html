@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Рабочее пространство</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/base.css?v=624e29a4">
+<link rel="stylesheet" href="/static/portal.css?v=cc825a31">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="topbar"><div class="in">
+  <a class="brand" href="/"><img class="mark" src="/static/brand/mark.svg" alt=""><span>Рабочее пространство</span></a>
+  <nav class="topnav" id="topnav"></nav>
+</div></header>
+<main>
+  <h1 id="hello">Сервисы</h1>
+  <div id="msg" class="msg" hidden></div>
+
+  <!-- Поиск — одна строка: он нужен часто, но это не главное на странице. -->
+  <form id="find-form" class="findbar" role="search">
+    <label class="visually-hidden" for="find-q">Найти во всех сервисах</label>
+    <input type="search" id="find-q" maxlength="100" autocomplete="off"
+           placeholder="Найти во всех сервисах: регион, тема, фамилия">
+    <button class="btn ghost" type="submit" id="find-go">Найти</button>
+  </form>
+  <div id="find-out" class="card find-out" hidden></div>
+
+  <!-- Короткая подсказка новичку: показывается, пока её не закроют. Человеку не надо объяснять
+       словами снаружи — всё, что нужно понять, написано на самой странице. -->
+  <section class="card intro" id="intro" hidden>
+    <button class="intro-close" id="intro-close" type="button" aria-label="Больше не показывать">✕</button>
+    <h2>Как здесь работают</h2>
+    <p class="muted">Каждая плитка — это готовый документ на выходе. Обычный порядок такой:
+      завести <b>папку мероприятия</b> и сложить в неё документы → собрать
+      <b>повестку и участников</b> → написать <b>тезисы</b> выступления →
+      сделать <b>бриф</b> или <b>лист A3</b> по материалам → собрать всё в <b>совещание</b>
+      и скачать пакет одним архивом.</p>
+    <p class="muted small">Начинать можно с любого места: документы связываются между собой кнопками
+      «Отправить в совещание» и «Приложить к совещанию».</p>
+  </section>
+
+  <!-- Главное на странице — сервисы. Они идут сразу и занимают первый экран. -->
+  <p class="msg warn" id="role-note" hidden></p>
+
+  <!-- Ближайшие совещания: срок и чего не хватает, чтобы не узнавать об этом в день совещания -->
+  <section class="card soon" id="soon" hidden aria-labelledby="soon-title">
+    <h2 id="soon-title">Скоро совещания</h2>
+    <ul id="soon-list"></ul>
+  </section>
+  <div class="tiles" id="tiles"></div>
+  <p class="muted small" id="empty" hidden>Вам пока не открыт ни один сервис. Обратитесь к администратору.</p>
+
+  <div class="home-cols">
+    <section class="card recent" id="recent" hidden aria-labelledby="recent-title">
+      <h2 id="recent-title">Вы недавно работали</h2>
+      <ul id="recent-list"></ul>
+    </section>
+
+    <!-- Подсказчик — вспомогательное: свёрнут, пока не понадобился. -->
+    <details class="card ask" id="ask-box">
+      <summary>
+        <span>Спросить Искру</span>
+        <span class="lamp" id="iskra-lamp" title="Проверяю связь с «Искрой»…">
+          <i class="lamp-dot" aria-hidden="true"></i><span id="iskra-lamp-text">проверяю связь…</span>
+        </span>
+      </summary>
+      <p class="muted small">Подскажет по рабочему пространству: какой сервис для какой задачи, что он умеет, где что нажать. На посторонние вопросы не отвечает.</p>
+      <form id="ask-form" class="ask-row">
+        <label class="visually-hidden" for="ask-q">Вопрос про рабочее пространство</label>
+        <input type="text" id="ask-q" maxlength="400" autocomplete="off"
+               placeholder="Например: чем «Бриф» отличается от A3?">
+        <button class="btn" type="submit" id="ask-send">Спросить</button>
+      </form>
+      <div class="ask-examples" id="ask-examples"></div>
+      <div id="ask-answer" class="ask-answer" hidden></div>
+    </details>
+  </div>
+</main>
+<script src="/static/workspace-header.js?v=7151576f" data-bar="off" defer></script>
+<script src="/static/portal.js?v=b46e709f"></script>
+<script src="/static/home.js?v=935656b4"></script>
+</body>
+</html>

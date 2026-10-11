@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сводка — Рабочее пространство</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/base.css?v=624e29a4">
+<link rel="stylesheet" href="/static/portal.css?v=cc825a31">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="topbar"><div class="in">
+  <a class="brand" href="/"><img class="mark" src="/static/brand/mark.svg" alt=""><span>Рабочее пространство</span></a>
+  <nav class="topnav" id="topnav"></nav>
+</div></header>
+<main>
+  <div class="row" style="justify-content:space-between;align-items:center">
+    <h1 style="margin:0">Сводка за месяц</h1>
+    <div class="row">
+      <label class="visually-hidden" for="month">Месяц</label>
+      <select id="month" style="width:auto"></select>
+    </div>
+  </div>
+  <div id="msg" class="msg" hidden></div>
+  <p class="muted" id="total"></p>
+
+  <div class="card" style="margin-top:14px">
+    <h2>По сервисам</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Сервис</th><th>Документов в работе</th><th>Действий</th><th>Сотрудников</th><th>Последняя работа</th></tr></thead>
+        <tbody id="by-service"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h2>По сотрудникам</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Сотрудник</th><th>Документов</th><th>Действий</th><th>Последняя работа</th></tr></thead>
+        <tbody id="by-login"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <p class="muted small" style="margin-top:16px">Считается по журналу портала: документ — объект, с которым работали (совещание, бриф, лист). Десять правок одного совещания — это одно совещание.</p>
+</main>
+<script src="/static/workspace-header.js?v=7151576f" data-bar="off" defer></script>
+<script src="/static/portal.js?v=b46e709f"></script>
+<script src="/static/summary.js?v=91c6e2ae"></script>
+</body>
+</html>

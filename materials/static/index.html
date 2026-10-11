@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Материалы</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/base.css">
+<link rel="stylesheet" href="static/style.css?v=6">
+<!-- Общая полоса портала: переход к сервисам, имя пользователя, выход.
+     Адрес абсолютный — это файлы портала, а не сервиса. -->
+<link rel="stylesheet" href="/static/workspace.css">
+<script src="/static/workspace-header.js" data-service="Материалы" defer></script>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+      Материалы
+    </div>
+    <div class="actions">
+      <button class="icon-btn" id="theme-toggle" title="Тема" aria-label="Сменить тему" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      </button>
+      <button class="btn-primary" id="btn-new" type="button">Новое мероприятие</button>
+    </div>
+  </div>
+</div>
+<div class="wrap">
+  <!-- «Приёмная»: документы из мессенджера, которые ещё не знают своего мероприятия -->
+  <div id="inbox-lane"></div>
+  <div class="grid">
+    <div class="col">
+      <div class="card">
+        <h2>Мероприятия</h2>
+        <input id="q" type="search" placeholder="Найти по названию или тексту документа" autocomplete="off">
+        <div id="list"><div class="empty">Загрузка…</div></div>
+      </div>
+    </div>
+    <div class="col" id="workspace">
+      <div class="card"><div class="empty">Выберите мероприятие слева или заведите новое.</div></div>
+    </div>
+  </div>
+</div>
+<div id="toasts"></div>
+<script src="static/app.js?v=8"></script>
+</body>
+</html>

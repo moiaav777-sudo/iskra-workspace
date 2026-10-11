@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Поручения — Рабочее пространство</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/base.css?v=624e29a4">
+<link rel="stylesheet" href="/static/portal.css?v=cc825a31">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="topbar"><div class="in">
+  <a class="brand" href="/"><img class="mark" src="/static/brand/mark.svg" alt=""><span>Рабочее пространство</span></a>
+  <nav class="topnav" id="topnav"></nav>
+</div></header>
+<main>
+  <h1 style="margin-bottom:4px">Поручения</h1>
+  <p class="muted">Всё, что поручили на совещаниях, — в одном списке. Просроченные сверху. Нажмите на строку, чтобы открыть совещание.</p>
+  <div id="msg" class="msg" hidden></div>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" data-filter="all" aria-selected="true">Все</button>
+    <button role="tab" data-filter="me" aria-selected="false">Мои</button>
+    <button role="tab" data-filter="overdue" aria-selected="false">Просроченные</button>
+  </div>
+
+  <p class="muted" id="count"></p>
+  <div class="card table-wrap">
+    <table>
+      <thead><tr><th>Поручение</th><th>Кому</th><th>Срок</th><th>Совещание</th></tr></thead>
+      <tbody id="orders"></tbody>
+    </table>
+    <p class="muted small" id="empty" hidden>Поручений пока нет. Они появляются здесь, когда их записывают в совещании, на вкладке «Поручения».</p>
+  </div>
+</main>
+<script src="/static/workspace-header.js?v=7151576f" data-bar="off" defer></script>
+<script src="/static/portal.js?v=b46e709f"></script>
+<script src="/static/orders.js?v=20efd798"></script>
+</body>
+</html>
