@@ -1,0 +1,14 @@
+{
+  "name": "Рабочее пространство",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "postCreateCommand": "./run.sh --install",
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": { "label": "Рабочее пространство", "onAutoForward": "openBrowser" }
+  },
+  "customizations": {
+    "codespaces": {
+      "openFiles": ["README.md"]
+    }
+  }
+}
