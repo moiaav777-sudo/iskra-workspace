@@ -6,6 +6,13 @@
 (`portal/shared/orders_docx.py`).
 
 В транскрипции таймкод «[05:12]» печатается серым, подпись говорящего — полужирным.
+
+Единый формат блоков (решение пользователя 13.10): если человек сохранил транскрипцию или саммари
+с оформлением (`draft_styled` / `summary_styled`), абзацы пишутся по `richtext_common.blocks(html)`:
+жирный, курсив, подчёркнутый, зачёркнутый, цвет, заливка (в Word — жёлтое выделение), заголовки
+полужирным крупнее, пункты списков стилями «List Bullet»/«List Number», выравнивание. Абзац
+транскрипции без оформления (кроме полужирного говорящего и таймкода) печатается как раньше —
+`transcript_paragraph`. Без сохранённого HTML — по тексту, как до 13.10.
 """
 from __future__ import annotations
 
@@ -15,18 +22,19 @@ from datetime import date, datetime
 from typing import Any
 
 from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
 from docx.shared import Mm, Pt, RGBColor
 
-from . import orders_docx
+from . import doc_html, orders_docx, richtext_common
 
 FONT = "Times New Roman"
-_PARA = re.compile(r"^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(.*)$", re.DOTALL)
-_SPEAKER = re.compile(
-    r"^((?:Говорящий|Говорящая|Спикер|Участник|Участница|Собеседник|Голос)\s*№?\s*\d{1,2}"
-    r"|[А-ЯЁ]\.\s?(?:[А-ЯЁ]\.\s?)?[А-ЯЁ][а-яё-]+"
-    r"|[А-ЯЁ][а-яё-]+\s+[А-ЯЁ]\.\s?(?:[А-ЯЁ]\.)?"
-    r"|[А-ЯЁ][а-яё-]+(?:\s+[А-ЯЁ][а-яё-]+){1,2}):\s+(.+)$", re.DOTALL)
+# шаблоны таймкода и говорящего живут в doc_html (их же видит карточка); имена — прежние
+_PARA = doc_html.PARA
+_SPEAKER = doc_html.SPEAKER
+_STAMP_RUN = re.compile(r"^\[\d{1,2}:\d{2}(?::\d{2})?\]$")
+_ALIGN = {"center": WD_ALIGN_PARAGRAPH.CENTER, "right": WD_ALIGN_PARAGRAPH.RIGHT,
+          "justify": WD_ALIGN_PARAGRAPH.JUSTIFY}
+_HEADING_PT = {1: 16, 2: 15, 3: 14}
 
 
 def _stamp(seconds: float) -> str:
@@ -117,12 +125,84 @@ def transcript_paragraph(doc, para: str) -> None:
     p.add_run(body)
 
 
+# ── оформление из HTML редактора (решение пользователя 13.10) ─────────────────
+
+def _styled_run(p, run: richtext_common.Run, size: int | None = None, bold: bool = False,
+                italic: bool = False) -> None:
+    out = p.add_run(run.text)                  # «\n» (перенос внутри абзаца) python-docx делает <w:br/>
+    out.bold = run.bold or bold or None
+    out.italic = run.italic or italic or None
+    out.underline = run.underline or bool(run.href) or None
+    out.font.strike = run.strike or None
+    if run.color:
+        out.font.color.rgb = RGBColor.from_string(run.color[1:].upper())
+    elif run.tc:                               # таймкод расшифровки — серым, как в transcript_paragraph
+        out.font.color.rgb = RGBColor(0x6B, 0x72, 0x80)
+    elif run.href:
+        out.font.color.rgb = RGBColor(0x05, 0x63, 0xC1)
+    if run.background:
+        out.font.highlight_color = WD_COLOR_INDEX.YELLOW   # в Word заливка — выделение, берём жёлтое
+    if size:
+        out.font.size = Pt(size)
+
+
+def _styled_block(doc, block: richtext_common.Block) -> None:
+    if block.kind == "li":
+        level = min(block.indent, 2)
+        style = ("List Number" if block.ordered else "List Bullet") + (f" {level + 1}" if level else "")
+        p = doc.add_paragraph(style=style)
+    else:
+        p = doc.add_paragraph()
+        if block.indent or block.kind == "quote":
+            p.paragraph_format.left_indent = Mm(10 * max(1, block.indent))
+    p.alignment = _ALIGN.get(block.align, WD_ALIGN_PARAGRAPH.LEFT if block.kind == "h"
+                             else WD_ALIGN_PARAGRAPH.JUSTIFY)
+    size = _HEADING_PT.get(block.level) if block.kind == "h" else None
+    for run in block.runs:
+        _styled_run(p, run, size=size, bold=block.kind == "h", italic=block.kind == "quote")
+        if block.kind == "pre":
+            p.runs[-1].font.name = "Courier New"
+
+
+def _plain_transcript(block: richtext_common.Block) -> str | None:
+    """Абзац транскрипции без оформления, кроме полужирного говорящего и таймкода (`tc` или цвет), —
+    его текст (печатается как раньше, `transcript_paragraph`); иначе None — оформление человека."""
+    if block.kind != "p" or block.align or block.indent:
+        return None
+    full = " ".join(block.text.split())
+    m = _PARA.match(full)
+    sm = _SPEAKER.match(m.group(2) if m else full)
+    speaker = sm.group(1) if sm else None
+    for run in block.runs:
+        if not (run.bold or run.italic or run.underline or run.strike or run.color
+                or run.background or run.href or run.tc):
+            continue
+        piece = " ".join(run.text.split())
+        if (run.bold and not (run.italic or run.underline or run.strike or run.color
+                              or run.background or run.href)
+                and speaker and piece.rstrip(":").strip() == speaker):
+            continue
+        if ((run.color or run.tc) and not (run.bold or run.italic or run.underline or run.strike
+                                           or run.background or run.href) and _STAMP_RUN.match(piece)):
+            continue
+        return None
+    return full
+
+
 def build_transcript(record: dict[str, Any]) -> bytes:
     """Дословная транскрипция («слово в слово») с таймкодами и говорящими."""
     doc = _doc("Транскрипция", record)
     draft = (record.get("draft_text") or "").strip()
     if not draft:
         _para(doc, "Текст ещё не распознан.")
+    elif record.get("draft_styled") and record.get("draft_html"):
+        for block in richtext_common.blocks(record["draft_html"]):
+            plain = _plain_transcript(block)
+            if plain is not None:
+                transcript_paragraph(doc, plain)
+            else:
+                _styled_block(doc, block)
+        return _save(doc)
     for para in re.split(r"\n\s*\n", draft):
         if para.strip():
             transcript_paragraph(doc, " ".join(para.split()))
@@ -134,6 +214,10 @@ def build_summary(record: dict[str, Any]) -> bytes:
     summary = orders_docx.dash(record.get("summary") or "").strip()
     if not summary:
         _para(doc, "Саммари ещё нет.")
+    elif record.get("summary_styled") and record.get("summary_html"):
+        for block in richtext_common.blocks(orders_docx.dash(record["summary_html"])):
+            _styled_block(doc, block)
+        return _save(doc)
     for para in re.split(r"\n\s*\n|\n(?=\s*(?:[-–•*]|\d+[.)])\s)", summary):
         if para.strip():
             _para(doc, " ".join(para.split()))

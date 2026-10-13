@@ -37,6 +37,7 @@ copy speech_common.py "$W/transcriber/app/speech_common.py"
 echo "== перечень поручений в Word (эталон «Перечень поручений 25.05.2026»; подключит и «Совещание»)"
 copy orders_docx.py "$W/transcriber/app/orders_docx.py"
 copy orders_docx.py "$W/moderator/app/orders_docx.py"
+copy richtext.py "$W/transcriber/app/richtext_common.py"
 
 echo "== чтение документов: Word, Excel, PowerPoint, PDF, rtf, odt, txt (решение пользователя 05.10)"
 for svc in brief theses moderator agenda profiles; do copy docs_common.py "$W/$svc/app/docs_common.py"; done

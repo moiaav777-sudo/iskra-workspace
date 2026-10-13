@@ -1,7 +1,10 @@
 /* Транскрибатор: загрузка записи, разбор «Искрой», список и карточка записи с тремя документами.
    Адреса относительные — сервис открывается под префиксом /transcriber/ (nginx его снимает).
    Решение пользователя 02.10: поле загрузки + «Разобрать с Искрой» → транскрипция, саммари,
-   перечень поручений; каждый документ правится (с версией) и скачивается в Word. */
+   перечень поручений; каждый документ правится (с версией) и скачивается в Word.
+   Решение пользователя 13.10 («каждый раздел — отдельным блоком для форматирования, как в
+   модераторе; единый формат»): три документа в карточке — блоки общего компонента WorkspaceBlocks
+   (/static/blocks.js), правка с оформлением уходит на сервер HTML. */
 (function () {
   "use strict";
   var role = document.body.dataset.role;
@@ -25,7 +28,11 @@
       return r.text().then(function (body) {
         var data = null;
         try { data = JSON.parse(body); } catch (e) { data = null; }
-        if (!r.ok || !data) throw new Error(trouble(r, body, data));
+        if (!r.ok || !data) {
+          var err = new Error(trouble(r, body, data));
+          err.status = r.status;                 // 409 — документ изменил другой человек или «Искра»
+          throw err;
+        }
         return data;
       });
     });
@@ -271,7 +278,6 @@
 
   // ── карточка записи: три документа ───────────────────────────────────────
   var dlg = el("detail"), detailError = el("detail-error");
-  var draftText = el("draft-text"), summaryText = el("summary-text"), ordersList = el("orders-list");
   var current = null;
 
   function detailFail(text) { detailError.hidden = false; detailError.textContent = text; }
@@ -286,62 +292,242 @@
     return m ? m[3] + "." + m[2] + "." + m[1] : "";
   }
 
-  function orderBlock(order, index) {
-    var box = document.createElement("div");
-    box.className = "order";
-    var num = document.createElement("span");
-    num.className = "order-num";
-    num.textContent = (index + 1) + ".";
-    var text = document.createElement("textarea");
-    text.className = "order-text";
-    text.rows = 3;
-    text.value = order.text || "";
-    text.placeholder = "Кому (И.О. Фамилия в дательном) … сделать что …";
-    var line = document.createElement("div");
-    line.className = "order-line";
-    var who = document.createElement("input");
-    who.className = "order-assignee";
-    who.placeholder = "Ответственный (коротко)";
-    who.value = order.assignee || "";
-    var term = document.createElement("input");
-    term.className = "order-deadline";
-    term.placeholder = "Срок ДД.ММ.ГГГГ";
-    term.value = order.deadline || "";
-    var drop = document.createElement("button");
-    drop.type = "button";
-    drop.className = "ghost";
-    drop.textContent = "Убрать";
-    drop.onclick = function () { box.remove(); renumber(); };
-    line.appendChild(who);
-    line.appendChild(term);
-    if (role !== "admin") line.appendChild(drop);
-    [text, who, term].forEach(function (i) { i.disabled = role === "admin"; });
-    box.appendChild(num);
-    box.appendChild(text);
-    box.appendChild(line);
-    return box;
+  // ── три документа блоками общего компонента (решение пользователя 13.10) ──────
+  // Один корень #doc-blocks, три карточки: «Транскрипция», «Саммари», «Перечень поручений».
+  // Сохраняет блок сам (onSave) — с версией документа, как раньше «Сохранить правку».
+  var docRoot = el("doc-blocks"), view = null, viewRo = null;
+  var versions = { draft: 0, summary: 0, orders: 0 };
+  // Блок поручения — «order-<id>»: id поручения постоянный, его выдаёт сервер (ревью RC-2026-10-13-2,
+  // К-1). По номеру нельзя: после ✕ у соседа или правки коллеги набранное ложилось на чужое поручение.
+  // «Добавить поручение»: пустое поручение, пока его не сохранили, — блок «order-new».
+  var freshOrder = null;
+  var FRESH = "order-new";
+  // Поручение, которое правят, а его тем временем убрал другой человек: блок остаётся с набранным,
+  // сохранение спросит, вернуть ли его в перечень, — поверх чужого не ложится.
+  var ghost = null;
+  var shownOrders = {};      // id → поручение, как его показали в последний раз
+  // Версия документа — та, с которой открыли редактор (ревью RC-2026-10-13-2, К-2): перечитывание
+  // карточки (сведения, архив, конец пересборки) её не обновляет, иначе чужая правка затиралась молча.
+  var editing = null;        // {block, doc, version}
+
+  function docOf(blockId) { return blockId === "draft" || blockId === "summary" ? blockId : "orders"; }
+  function orderIdOf(blockId) { return String(blockId).replace(/^order-/, ""); }
+
+  var toastBox = el("toast"), toastTimer = null;
+  function toast(text) {
+    toastBox.textContent = text;
+    toastBox.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastBox.hidden = true; }, 5000);
+  }
+  var DIRTY = "Сначала сохраните или отмените правку в открытом блоке.";
+
+  function orderBlock(o, i) {
+    var chips = [{ label: "Ответственный", value: o.assignee || "" }, { label: "Срок", value: o.deadline || "" }]
+      .filter(function (c) { return c.value; });
+    var gone = o === ghost;
+    return {
+      id: o === freshOrder ? FRESH : "order-" + o.id,
+      label: gone ? "Поручение убрал другой человек" : "Поручение " + (i + 1), bucket: "action",
+      html: o.html || "",
+      placeholder: "Кому (И.О. Фамилия в дательном) … сделать что …",
+      fields: [{ name: "assignee", label: "Ответственный (коротко)", value: o.assignee || "" },
+               { name: "deadline", label: "Срок ДД.ММ.ГГГГ", value: o.deadline || "", narrow: true }],
+      chips: chips,
+    };
   }
 
-  function renumber() {
-    var items = ordersList.querySelectorAll(".order");
-    Array.prototype.forEach.call(items, function (box, i) { box.querySelector(".order-num").textContent = (i + 1) + "."; });
-    el("orders-empty").hidden = items.length > 0;
+  /* Ссылки «Скачать» — в подвале своей карточки (footerHtml компонента: своя доверенная разметка). */
+  function links(record, items) {
+    var base = "api/records/" + encodeURIComponent(record.id) + "/export/";
+    return items.map(function (it) {
+      return '<a id="' + it[0] + '" href="' + base + it[1] + '">' + it[2] + "</a>";
+    }).join(" ");
   }
 
-  function renderOrders(orders) {
-    ordersList.innerHTML = "";
-    (orders || []).forEach(function (o, i) { ordersList.appendChild(orderBlock(o, i)); });
-    renumber();
+  function orderItems(record) {
+    var items = (record.orders || []).slice();
+    var open = view && view.editing();
+    // открытое поручение с несохранённой правкой пропало из перечня — держим его блок, чтобы не
+    // потерять набранное и не перевесить его на другое поручение
+    if (open && open !== FRESH && /^order-/.test(open) && view.isDirty()) {
+      var oid = orderIdOf(open);
+      var still = items.some(function (o) { return o.id === oid; });
+      if (!still && !(ghost && ghost.id === oid)) ghost = Object.assign({}, shownOrders[oid] || {}, { id: oid });
+      if (still) ghost = null;
+    } else if (ghost && open !== "order-" + ghost.id) {
+      ghost = null;
+    }
+    if (ghost) items.push(ghost);
+    if (freshOrder) items.push(freshOrder);
+    shownOrders = {};
+    (record.orders || []).forEach(function (o) { shownOrders[o.id] = o; });
+    return items;
   }
 
-  function collectOrders() {
-    return Array.prototype.map.call(ordersList.querySelectorAll(".order"), function (box) {
-      return {
-        text: box.querySelector(".order-text").value,
-        assignee: box.querySelector(".order-assignee").value,
-        deadline: box.querySelector(".order-deadline").value,
-      };
+  function docCards(record) {
+    var working = !!WORKING[record.state];
+    return [
+      { id: "transcript", title: "Транскрипция", note: "дословно, с таймкодами",
+        footerHtml: links(record, [["dl-transcript", "transcript.docx", "Скачать Word"],
+                                   ["dl-txt", "transcript.txt", "Скачать текст"]]), blocks: [
+        { id: "draft", label: "Расшифровка", bucket: "org", html: record.draft_html || "", deletable: false,
+          placeholder: working ? "«Искра» ещё расшифровывает…" : "Текст ещё не распознан" }] },
+      { id: "summary", title: "Саммари",
+        footerHtml: links(record, [["dl-summary", "summary.docx", "Скачать Word"]]), blocks: [
+        { id: "summary", label: "Саммари", bucket: "report", html: record.summary_html || "", deletable: false,
+          placeholder: working ? "«Искра» ещё пишет саммари…" : "Саммари пока нет" }] },
+      { id: "orders", title: "Перечень поручений",
+        note: "срок — ДД.ММ.ГГГГ; нет срока — строки «Срок» в документе не будет",
+        actions: [{ act: "add", label: "Добавить поручение" }],
+        footerHtml: links(record, [["dl-orders", "orders.docx", "Скачать Word"]]),
+        empty: record.has_orders ? "Поручений нет." :
+          (working ? "«Искра» ещё составляет перечень…" : "Перечня пока нет."),
+        blocks: orderItems(record).map(orderBlock) },
+    ];
+  }
+
+  function orderPayload(o) {
+    return { id: o.id, html: o.html || "", assignee: o.assignee || "", deadline: o.deadline || "" };
+  }
+
+  /* Сохранение документа: ответ — запись → карточка; 409 — показать, перечитать и вернуть «stale»,
+     компонент оставит редактор с набранным текстом поверх свежей версии (контракт blocks.js).
+     Версию открытого редактора после 409 берём свежую — человек увидел сообщение. */
+  function saveDoc(url, body, only, blockId, saved) {
+    var id = current.id;
+    return api(url, jsonBody("PUT", body)).then(function (record) {
+      if (saved) saved();
+      if (current && current.id === id) fillDetail(record, only);
+      load();
+      return true;
+    }, function (e) {
+      detailFail(e.message);
+      if (e.status === 409) {
+        api("api/records/" + id).then(function (record) {
+          if (!(current && current.id === id)) return;
+          fillDetail(record, only);
+          if (editing && blockId && editing.block === blockId) editing.version = versions[editing.doc];
+          var lost = ghost && blockId === "order-" + ghost.id;
+          detailFail(e.message + (lost ? " Поручение, которое вы правите, тем временем убрали: «Сохранить» вернёт " +
+                                         "его в перечень с вашей правкой, «Отмена» — оставит убранным." : ""));
+        }).catch(function () { /* текст ошибки уже на экране */ });
+        throw new Error("stale");
+      }
+      throw e;
     });
+  }
+
+  function onEditOpen(b) {
+    // прежний компонент открывал редактор заново после update(): с несохранённой правкой версия — прежняя
+    if (editing && editing.block === b.id && view && view.isDirty()) return;
+    editing = { block: b.id, doc: docOf(b.id), version: versions[docOf(b.id)] };
+  }
+
+  function onSave(p) {
+    if (!current) return Promise.reject(new Error("нет записи"));
+    var base = "api/records/" + current.id, blockId = p.block.id, doc = docOf(blockId);
+    var version = editing && editing.block === blockId ? editing.version : versions[doc];
+    if (doc === "draft") return saveDoc(base + "/text", { html: p.html, version: version }, "draft", blockId);
+    if (doc === "summary") return saveDoc(base + "/summary", { html: p.html, version: version }, "summary", blockId);
+    // весь перечень с заменённым поручением (по id); поля — из редактора блока
+    var list = (current.orders || []).map(orderPayload);
+    var edited = { html: p.html, assignee: (p.fields || {}).assignee || "", deadline: (p.fields || {}).deadline || "" };
+    var wasGhost = false;
+    if (blockId === FRESH) {
+      list.push(edited);
+    } else {
+      edited.id = orderIdOf(blockId);
+      var at = list.map(function (o) { return o.id; }).indexOf(edited.id);
+      if (at >= 0) {
+        list[at] = edited;
+      } else {
+        if (!confirm("Это поручение тем временем убрал другой человек. Вернуть его в перечень с вашей правкой?")) {
+          detailFail("Поручение убрано другим человеком — правка не сохранена. «Отмена» закроет его.");
+          return Promise.reject(new Error("gone"));
+        }
+        wasGhost = true;
+        list.push(edited);
+      }
+    }
+    return saveDoc(base + "/orders", { orders: list, version: version }, "orders", blockId, function () {
+      if (blockId === FRESH) freshOrder = null;
+      if (wasGhost) ghost = null;
+    });
+  }
+
+  /* ✕ у поручения. Возвращает false, если ничего не убрали: компонент тогда не закрывает редактор
+     этого блока (набранное не пропадает). */
+  function onDelete(p) {
+    if (!current || !/^order-/.test(p.block.id)) return false;
+    // ✕ не выполняется, пока в другом блоке есть несохранённая правка (ревью RC-2026-10-13-2, К-1)
+    var open = view.editing();
+    if (view.isDirty() && open && open !== p.block.id) { toast(DIRTY); return false; }
+    if (p.block.id === FRESH) {                    // новое, ещё не сохранённое — просто убрать
+      freshOrder = null;
+      view.update(docCards(current));
+      return true;
+    }
+    if (ghost && p.block.id === "order-" + ghost.id) { ghost = null; view.update(docCards(current)); return true; }
+    var oid = orderIdOf(p.block.id);
+    var list = (current.orders || []).map(orderPayload);
+    var at = list.map(function (o) { return o.id; }).indexOf(oid);
+    if (at < 0) return false;
+    if (!confirm("Убрать поручение " + (at + 1) + " из перечня?")) return false;
+    list.splice(at, 1);
+    saveDoc("api/records/" + current.id + "/orders", { orders: list, version: versions.orders }, "orders", null)
+      .catch(function () { /* ошибка уже показана */ });
+    return true;
+  }
+
+  function onAction(p) {
+    if (p.act !== "add" || !current) return;
+    if (view.isDirty()) { toast(DIRTY); return; }
+    if (!freshOrder) {
+      freshOrder = { html: "", assignee: "", deadline: "" };
+      view.update(docCards(current));
+    }
+    view.open(FRESH);
+  }
+
+  /* Блок с несохранённой правкой пропал из карточки (компонент отдаёт набранное, а не теряет молча).
+     Убранное коллегой поручение мы держим сами (ghost), так что сюда попадает только непредвиденное. */
+  function onEditLost(info) {
+    if (info && info.dirty) {
+      detailFail("Блок, который вы правили, пропал из карточки — правка не сохранена. Набранный текст: " +
+                 WorkspaceBlocks.textOf(info.html).slice(0, 300));
+    }
+  }
+
+  function onEditClose(block) {
+    if (editing && block && editing.block === block.id) editing = null;
+    // «Отмена» у нового поручения — его и не было; у убранного коллегой — оставить убранным
+    if (current && block && ((freshOrder && block.id === FRESH) || (ghost && block.id === "order-" + ghost.id))) {
+      if (block.id === FRESH) freshOrder = null; else ghost = null;
+      view.update(docCards(current));
+    }
+  }
+
+  /* Администратор документы не ведёт; запись в работе у «Искры» — только просмотр (как раньше
+     disabled). Режим меняет view.setReadOnly; открытый редактор с несохранённой правкой при этом
+     не закрываем (setReadOnly закрыл бы его молча) — его можно сохранить: версия, с которой его
+     открыли (onEditOpen), не даст затереть результат «Искры» (409). */
+  function renderDocs(record) {
+    var ro = role === "admin" || !!WORKING[record.state];
+    if (!view) {
+      if (!window.WorkspaceBlocks) { detailFail("Не загрузился редактор документов — обновите страницу."); return; }
+      view = WorkspaceBlocks.mount(docRoot, {
+        cards: docCards(record), readOnly: ro, onSave: onSave, onDelete: onDelete, onAction: onAction,
+        onEditOpen: onEditOpen, onEditClose: onEditClose, onEditLost: onEditLost,
+      });
+      viewRo = ro;
+      return;
+    }
+    if (ro !== viewRo && !(ro && view.isDirty())) {
+      view.setReadOnly(ro);
+      viewRo = ro;
+    }
+    view.update(docCards(record));
   }
 
   function fillMeta(record) {
@@ -352,9 +538,7 @@
     if (record.state_note) meta.push(record.state_note);
     el("detail-meta").textContent = meta.join(" · ");
     var working = !!WORKING[record.state];
-    ["save-draft", "save-summary", "save-orders", "add-order", "rebuild", "to-meeting"].forEach(function (id) {
-      el(id).disabled = working;
-    });
+    ["rebuild", "to-meeting"].forEach(function (id) { el(id).disabled = working; });
     el("rebuild").hidden = role === "admin" || !record.draft_text;
     var meeting = record.meeting;
     var canAttach = !!(LINKS.results && role !== "admin" && record.draft_text);
@@ -368,9 +552,11 @@
     if (meeting && meeting.url) el("open-meeting").href = meeting.url;
   }
 
-  /* `only` — какой блок обновить после сохранения: остальные блоки не трогаем, чтобы
-     несохранённая правка в соседнем блоке не пропала. */
+  /* `only` — что сохранили: поля «Для документов» перечитываются только при открытии карточки или
+     после их сохранения, чтобы набранное в них не пропало. Блоки документов обновляются всегда:
+     открытый редактор компонент сохраняет сам (view.update переживает открытый редактор). */
   function fillDetail(record, only) {
+    var other = current && current.id !== record.id;
     current = record;
     var all = !only;
     detailError.hidden = true;
@@ -384,32 +570,13 @@
       ["meta-chair", "meta-role", "meta-date"].forEach(function (id) { el(id).disabled = ro; });
       el("save-meta").hidden = ro;
     }
-    if (all || only === "draft") {
-      draftText.value = record.draft_text || "";
-      draftText.disabled = ro;
-      el("save-draft").hidden = ro;
+    versions = { draft: record.draft_version, summary: record.summary_version, orders: record.orders_version };
+    if (other) {                                   // другая запись — чужой редактор и новое поручение не тянем
+      freshOrder = null; ghost = null;
+      if (view && view.editing()) view.close();
+      editing = null;
     }
-    draftText.dataset.version = record.draft_version;
-    if (all || only === "summary") {
-      summaryText.value = record.summary || "";
-      summaryText.placeholder = WORKING[record.state] ? "«Искра» ещё пишет саммари…" : "Саммари пока нет";
-      summaryText.disabled = ro;
-      el("save-summary").hidden = ro;
-    }
-    summaryText.dataset.version = record.summary_version;
-    if (all || only === "orders") {
-      renderOrders(record.orders);
-      el("orders-empty").textContent = record.has_orders ? "Поручений нет." :
-        (WORKING[record.state] ? "«Искра» ещё составляет перечень…" : "Перечня пока нет.");
-      el("save-orders").hidden = ro;
-      el("add-order").hidden = ro;
-    }
-    ordersList.dataset.version = record.orders_version;
-    var base = "api/records/" + record.id + "/export/";
-    el("dl-transcript").href = base + "transcript.docx";
-    el("dl-txt").href = base + "transcript.txt";
-    el("dl-summary").href = base + "summary.docx";
-    el("dl-orders").href = base + "orders.docx";
+    renderDocs(record);
     var toggle = el("toggle-archive");
     toggle.hidden = ro;
     toggle.textContent = record.archived ? "Вернуть из архива" : "В архив";
@@ -425,6 +592,18 @@
         .catch(function (e) { detailFail(e.message); });
     };
   }
+
+  // несохранённая правка в блоке не пропадает молча при закрытии карточки
+  var LOSE = "В открытом блоке есть несохранённая правка. Закрыть карточку без сохранения?";
+  dlg.addEventListener("cancel", function (e) { if (view && view.isDirty() && !confirm(LOSE)) e.preventDefault(); });
+  dlg.querySelector('form[method="dialog"]').addEventListener("submit", function (e) {
+    if (view && view.isDirty() && !confirm(LOSE)) e.preventDefault();
+  });
+  dlg.addEventListener("close", function () {
+    freshOrder = null; ghost = null;
+    if (view && view.editing()) view.close();
+    editing = null;
+  });
 
   function openDetail(id) {
     api("api/records/" + id).then(function (record) {
@@ -461,28 +640,10 @@
     }).catch(function (e) { detailFail(e.message); });
   }
 
-  el("save-draft").onclick = function () {
-    save("api/records/" + current.id + "/text",
-         { text: draftText.value, version: parseInt(draftText.dataset.version, 10) }, "draft");
-  };
-  el("save-summary").onclick = function () {
-    save("api/records/" + current.id + "/summary",
-         { text: summaryText.value, version: parseInt(summaryText.dataset.version, 10) }, "summary");
-  };
-  el("save-orders").onclick = function () {
-    save("api/records/" + current.id + "/orders",
-         { orders: collectOrders(), version: parseInt(ordersList.dataset.version, 10) }, "orders");
-  };
   el("save-meta").onclick = function () {
     save("api/records/" + current.id + "/meta", {
       chair: el("meta-chair").value, chair_role: el("meta-role").value, meeting_date: ruOf(el("meta-date").value),
     }, "meta");
-  };
-  el("add-order").onclick = function () {
-    ordersList.appendChild(orderBlock({}, ordersList.querySelectorAll(".order").length));
-    renumber();
-    var last = ordersList.querySelector(".order:last-child .order-text");
-    if (last) last.focus();
   };
   el("rebuild").onclick = function () {
     if (!current) return;
@@ -491,7 +652,7 @@
     var id = current.id;
     el("rebuild").disabled = true;
     api("api/records/" + id + "/rebuild", { method: "POST" }).then(function (job) {
-      if (job.record) fillMeta(job.record);
+      if (job.record && current && current.id === id) fillDetail(job.record, "rebuild");
       followRecord(id);
     }).catch(function (e) { el("rebuild").disabled = false; detailFail(e.message); });
   };

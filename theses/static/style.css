@@ -207,29 +207,11 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0;}
    сервисы пространства не расходились. Ниже — только то, чего там нет:
    редактор тезисов, выделения из образца оформления и окно «Что нужно». */
 
-/* ── текст тезисов: редактор Quill, как в «Совещании» ──────────────────────
-   Оформление редактора — из moderator/static/index.html, чтобы сервисы не расходились. */
-.editor-wrap { margin-bottom: .5rem; }
-.ql-container { font-family: inherit; font-size: 1rem; }
-.ql-container.ql-snow { background: #fff; border-radius: 0 0 var(--radius-s) var(--radius-s); border-color: var(--border-strong); }
-.ql-toolbar.ql-snow { border-radius: var(--radius-s) var(--radius-s) 0 0; border-color: var(--border-strong); background: var(--surface-2); }
-.ql-editor { min-height: 12rem; line-height: 1.55; color: #1a1a1a; background: #fff; }
-.ql-container.ql-snow .ql-editor.ql-blank::before { color: var(--text-muted); font-style: normal; }
-.ql-toolbar.ql-snow .ql-picker-label, .ql-toolbar.ql-snow .ql-picker-item { color: #1a1a1a; }
-.ql-snow .ql-stroke { stroke: #1a1a1a; }
-.ql-snow .ql-fill { fill: #1a1a1a; }
-.ql-toolbar .marker-btn { width: auto !important; padding: 0 .5rem !important; color: #c00000 !important; font-weight: 600; font-size: .85rem; white-space: nowrap; }
-.ql-toolbar .marker-btn:hover { background: var(--surface); border-radius: 4px; }
-.thesis-view { padding: .25rem 0; line-height: 1.55; }
-.thesis-view.ql-editor { min-height: 0; background: transparent; color: var(--text); overflow: visible; white-space: normal; }
-.thesis-view ul, .thesis-view ol, .draft-list ul, .draft-list ol { padding-left: 1.5em; margin: .25rem 0; }
-.thesis-view li + li, .draft-list li + li { margin-top: .35rem; }
-.editor-foot { display: flex; gap: .75rem; align-items: center; font-size: .85rem; color: var(--text-muted); margin-top: .35rem; }
-.editor-foot .over { color: var(--warning); }
-.save-state { min-width: 6rem; }
-.save-state.ok { color: var(--success, var(--ok)); }
-.save-state.bad { color: var(--danger); }
-.edit-ta { width: 100%; min-height: 12rem; }
+/* ── текст тезисов: блоки по разделам — общий компонент «единый формат блоков» ──
+   Решение пользователя 13.10 («каждый раздел — отдельным блоком, как в модераторе»): карточка,
+   блоки, панель и редактор оформляет /static/blocks.css портала; здесь — только отступы вокруг. */
+.thesis-blocks { margin-top: .5rem; }
+.thesis-blocks .sc-card { margin-bottom: 0; }
 .editor-hint { margin-top: .4rem; }
 .refs { margin-top: .75rem; font-size: .85rem; line-height: 1.45; }
 .mixed-note ul { margin: .35rem 0 0 1.2rem; }
@@ -247,7 +229,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0;}
 .dropzone.off { cursor: default; opacity: .75; }
 .dropzone.off:hover { border-color: var(--border-strong); background: none; }
 .job-box.info { background: var(--accent-soft); border-color: var(--accent); }
-.modal .draft-list.thesis-view { max-height: 55vh; overflow: auto; padding: .5rem .75rem; border: 1px solid var(--border); border-radius: var(--radius-s); }
+.modal .draft-list { max-height: 55vh; overflow: auto; padding: .5rem .75rem; border: 1px solid var(--border); border-radius: var(--radius-s); }
 
 /* маркер недостающей фактуры — в интерфейсе тем же красным, что и в Word */
 .marker { color: #c00000; font-weight: 700; }

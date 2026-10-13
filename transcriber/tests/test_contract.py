@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 import pytest
+from unittest.mock import ANY
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -181,7 +182,9 @@ def test_polny_cikl_raspoznavanie_i_summari(client):
     assert record["state"] == "done"
     assert "кварц" in record["draft_text"]
     assert record["summary"]              # саммари подмены — тот же текст
-    assert record["orders"] == [ORDER]    # третий документ — перечень поручений
+    # третий документ — перечень поручений; html для блока карточки выводится из текста (13.10)
+    # у поручения постоянный id (ревью RC-2026-10-13-2, К-1)
+    assert record["orders"] == [{**ORDER, "html": f"<p>{ORDER['text']}</p>", "id": ANY}]
     assert record["tokens"] == 125        # саммари 100 + поручения 25
     assert record["engine"] == "scripted"
 

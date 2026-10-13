@@ -218,6 +218,8 @@ def test_к1_правка_не_уходит_к_другим_тезисам():
 
 
 # ── ревьюер RC-2026-09-21-17, П4: закрытие страницы не обрывает сохранение ──
+# С 13.10 текст правится блоками по разделам (общий компонент): уходит весь HTML тезисов,
+# в котором открытый раздел заменён набранным.
 
 HARNESS_HIDE = r"""
 const fs = require('fs');
@@ -238,12 +240,18 @@ global.fetch = async (url, opts) => {
     body: JSON.parse(opts.body) });
   return { status: 200, ok: true, redirected: false, url: '', json: async () => ({}) };
 };
+// открытый блок общего компонента (решение пользователя 13.10): правят раздел «Выводы»;
+// правка начата от версии 7, а на руках уже 9 — версия ушла вперёд, экран не перечитан
 eval(src + `
-;globalThis.__t = { prepare: () => { currentId = 't1'; _thesis = { id: 't1', bullets: [] };
-  _editorBase = { rev: 7, html: '' }; _editorDirty = true; _quill = {}; } };
-_editorHtml = () => globalThis.__text || '<ul><li>Несохранённое</li></ul>';
+;globalThis.__t = { prepare: () => { currentId = 't1'; _currentRev = 9;
+  _thesis = { id: 't1', bullets: [], html: '<p>Вступление.</p><h2>Выводы</h2><p>Было.</p><h2>Поручения</h2><p>П.</p>' };
+  _keyed = { html: null, list: [] };
+  const sec = keyedSections(_thesis.html)[1];
+  _view = { editing: () => sec.id, isDirty: () => true, fields: () => ({ title: 'Выводы' }),
+    html: () => globalThis.__text || '<ul><li>Несохранённое</li></ul>' };
+  _editBase = { key: sec.id, head: sec.head, title: sec.title, body: sec.body, rev: 7 }; } };
 globalThis.__t.queueHead = () => { _currentRev = 9; send('api/theses/t1', 'PUT', { topic: 'Новая тема', minutes: 5 }); };
-globalThis.__t.dirty = () => _editorDirty;
+globalThis.__t.dirty = () => _view.isDirty();
 `);
 (async () => {
   await new Promise((r) => setTimeout(r, 50));
@@ -289,8 +297,10 @@ def test_п4_при_закрытии_текст_уходит_с_keepalive_и_с�
     got = json.loads(lines[-1])
     sent = got["basic"]
     assert len(sent) == 1 and sent[0]["keepalive"] and sent[0]["url"].endswith("/text")
-    assert sent[0]["body"] == {"html": "<ul><li>Несохранённое</li></ul>", "rev": 7}, (
-        "версия — та, от которой шла правка: чужое не затрётся")
+    assert sent[0]["body"] == {
+        "html": "<p>Вступление.</p><h2>Выводы</h2><ul><li>Несохранённое</li></ul><h2>Поручения</h2><p>П.</p>",
+        "rev": 7}, ("версия — та, от которой шла правка (П4 RC-2026-09-21-17, К-2 RC-2026-10-13-3): "
+                    "изменили что-то после неё — сервер ответит 409, чужое не затрётся")
     # RC-18
     assert got["dirtyAfterBeforeunload"] is True and got["beforeunloadSent"] == 0
     assert got["big"] == [False], "больше 64 КБ — обычным запросом, а не молча"

@@ -6,6 +6,11 @@
 обработки (`app/media.py`) и результат — три документа (решение пользователя 02.10):
 дословная транскрипция (`draft`), саммари (`summary`) и перечень поручений (`orders`, JSON).
 У каждого своя версия: правка человека и запись «Искры» не затирают друг друга.
+
+Единый формат блоков (решение пользователя 13.10): правка человека с оформлением хранится ещё и
+HTML — `draft_html`, `summary_html`, у поручения в JSON `orders` ключ `html` (очищенный
+`richtext_common.clean`). Текст рядом остаётся всегда — по нему работают «Искра», TXT и перечень
+в Word. Когда текст перезаписывает «Искра», HTML сбрасывается в '' — показывается свежий текст.
 """
 from __future__ import annotations
 
@@ -14,7 +19,7 @@ import sqlite3
 from datetime import datetime, timezone
 from typing import Any
 
-from . import config
+from . import config, doc_html, orders as orders_mod
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS records (
@@ -30,7 +35,9 @@ CREATE TABLE IF NOT EXISTS records (
     draft_version INTEGER NOT NULL DEFAULT 1,
     summary       TEXT    NOT NULL DEFAULT '',
     summary_version INTEGER NOT NULL DEFAULT 1,
-    orders        TEXT    NOT NULL DEFAULT '',      -- JSON: [{text, assignee, deadline}]; '' — ещё нет
+    draft_html    TEXT    NOT NULL DEFAULT '',      -- правка транскрипции с оформлением; '' — из текста
+    summary_html  TEXT    NOT NULL DEFAULT '',      -- правка саммари с оформлением; '' — из текста
+    orders        TEXT    NOT NULL DEFAULT '',      -- JSON: [{text, assignee, deadline, html?}]; '' — ещё нет
     orders_version INTEGER NOT NULL DEFAULT 1,
     chair         TEXT    NOT NULL DEFAULT '',      -- председатель: подпись перечня «И.О. Фамилия»
     chair_role    TEXT    NOT NULL DEFAULT '',      -- его должность: шапка перечня
@@ -77,6 +84,9 @@ MIGRATIONS = (
     ("chair_role", "TEXT NOT NULL DEFAULT ''"),
     ("meeting_date", "TEXT NOT NULL DEFAULT ''"),
     ("meeting", "TEXT NOT NULL DEFAULT ''"),
+    # единый формат блоков (решение пользователя 13.10): правка с оформлением
+    ("draft_html", "TEXT NOT NULL DEFAULT ''"),
+    ("summary_html", "TEXT NOT NULL DEFAULT ''"),
 )
 
 
@@ -196,7 +206,17 @@ def get_record(record_id: int) -> dict[str, Any] | None:
     card["draft"] = json.loads(row["draft"]) if row["draft"] else []
     card["draft_text"] = _segments_to_text(card["draft"]) if card["draft"] else ""
     card["summary"] = row["summary"]
-    card["orders"] = _json_or(row["orders"], [])
+    card["orders"] = [o for o in _json_or(row["orders"], []) if isinstance(o, dict)]
+    orders_mod.ensure_ids(card["orders"], positional=True)    # старые поручения без id — по месту
+    # HTML для блоков карточки (решение пользователя 13.10): сохранённый человеком или из текста
+    # (`*_styled` — правку с оформлением сохранил человек: Word и «Совещание» берут её HTML)
+    # HTML действителен, только если согласован с текстом (ревью RC-2026-10-13-2, Н-1)
+    card["draft_styled"] = doc_html.consistent(row["draft_html"], card["draft_text"])
+    card["summary_styled"] = doc_html.consistent(row["summary_html"], card["summary"])
+    card["draft_html"] = doc_html.draft_html(card["draft_text"], row["draft_html"])
+    card["summary_html"] = doc_html.summary_html(card["summary"], row["summary_html"])
+    for order in card["orders"]:
+        order["html"] = doc_html.order_html(order)
     return card
 
 
@@ -229,8 +249,8 @@ def set_result(record_id: int, segments: list[dict[str, Any]], duration: float, 
     text = json.dumps(segments, ensure_ascii=False)
     with connect() as conn:
         cur = conn.execute(
-            "UPDATE records SET draft = ?, duration = ?, engine = ?, state = ?, state_note = ?"
-            " WHERE id = ?",
+            "UPDATE records SET draft = ?, draft_html = '', duration = ?, engine = ?, state = ?,"
+            " state_note = ? WHERE id = ?",
             (text, duration, engine, state if state in STATES else "", note[:200], record_id),
         )
         if not cur.rowcount:
@@ -252,8 +272,9 @@ def set_summary(record_id: int, summary: str, tokens: int, state: str = "done",
             "UPDATE records SET tokens = tokens + ?, state = ?, state_note = ? WHERE id = ?",
             (max(0, int(tokens)), state if state in STATES else "", note[:200], record_id))
         if fresh:
-            conn.execute("UPDATE records SET summary = ?, summary_version = summary_version + 1"
-                         " WHERE id = ?", (summary, record_id))
+            # текст пишет «Искра» — оформление прежней правки к нему не относится
+            conn.execute("UPDATE records SET summary = ?, summary_html = '',"
+                         " summary_version = summary_version + 1 WHERE id = ?", (summary, record_id))
     return fresh
 
 
@@ -270,6 +291,7 @@ def set_orders(record_id: int, orders: list[dict[str, str]], tokens: int, state:
             "UPDATE records SET tokens = tokens + ?, state = ?, state_note = ? WHERE id = ?",
             (max(0, int(tokens)), state if state in STATES else "", note[:200], record_id))
         if fresh:
+            orders = orders_mod.ensure_ids([dict(o) for o in orders])
             conn.execute("UPDATE records SET orders = ?, orders_version = orders_version + 1"
                          " WHERE id = ?", (json.dumps(orders, ensure_ascii=False), record_id))
     return fresh
@@ -295,11 +317,12 @@ class Conflict(Exception):
 
 
 def save_draft_text(record_id: int, text: str, user: dict[str, str],
-                    base_version: int) -> dict[str, Any] | None:
+                    base_version: int, html: str = "") -> dict[str, Any] | None:
     """Правка черновика руками: текст целиком, без таймкодов (человек может их стереть).
 
     Версия обязательна (DEV-CHECKLIST, п. 2): без неё правка могла бы затереть то,
-    что дописала «Искра» или другой человек в другой вкладке.
+    что дописала «Искра» или другой человек в другой вкладке. `html` — та же правка с
+    оформлением (уже очищенная, решение пользователя 13.10); '' — правка простым текстом.
     """
     stamp = now()
     # ручная правка хранится одним куском без таймкода — таймкоды нужны только
@@ -315,16 +338,17 @@ def save_draft_text(record_id: int, text: str, user: dict[str, str],
             raise Conflict(row)
         version = int(row["draft_version"]) + 1
         conn.execute(
-            "UPDATE records SET draft = ?, draft_version = ?, updated_at = ?, updated_by = ?,"
-            " updated_name = ? WHERE id = ?",
-            (json.dumps(segments, ensure_ascii=False), version, stamp, user["login"],
-             user["name"], record_id),
+            "UPDATE records SET draft = ?, draft_html = ?, draft_version = ?, updated_at = ?,"
+            " updated_by = ?, updated_name = ? WHERE id = ?",
+            (json.dumps(segments, ensure_ascii=False), html if text.strip() else "", version, stamp,
+             user["login"], user["name"], record_id),
         )
     return get_record(record_id)
 
 
 def _save_versioned(record_id: int, user: dict[str, str], base_version: int, field: str,
-                    version_field: str, value: str) -> dict[str, Any] | None:
+                    version_field: str, value: str,
+                    extra: dict[str, str] | None = None) -> dict[str, Any] | None:
     stamp = now()
     with connect() as conn:
         conn.execute("BEGIN IMMEDIATE")
@@ -333,23 +357,27 @@ def _save_versioned(record_id: int, user: dict[str, str], base_version: int, fie
             return None
         if int(base_version) != int(row[version_field]):
             raise Conflict(row, version_field)
+        sets = "".join(f", {name} = ?" for name in (extra or {}))
         conn.execute(
-            f"UPDATE records SET {field} = ?, {version_field} = {version_field} + 1,"
+            f"UPDATE records SET {field} = ?{sets}, {version_field} = {version_field} + 1,"
             " updated_at = ?, updated_by = ?, updated_name = ? WHERE id = ?",
-            (value, stamp, user["login"], user["name"], record_id))
+            (value, *(extra or {}).values(), stamp, user["login"], user["name"], record_id))
     return get_record(record_id)
 
 
 def save_summary_text(record_id: int, text: str, user: dict[str, str],
-                      base_version: int) -> dict[str, Any] | None:
-    """Правка саммари руками — с версией, как у черновика."""
+                      base_version: int, html: str = "") -> dict[str, Any] | None:
+    """Правка саммари руками — с версией, как у черновика; `html` — с оформлением (13.10)."""
+    text = text.strip()
     return _save_versioned(record_id, user, base_version, "summary", "summary_version",
-                           text.strip())
+                           text, {"summary_html": html if text else ""})
 
 
 def save_orders(record_id: int, orders: list[dict[str, str]], user: dict[str, str],
                 base_version: int) -> dict[str, Any] | None:
-    """Правка перечня поручений руками — с версией, как у черновика."""
+    """Правка перечня поручений руками — с версией, как у черновика. id поручений сохраняются,
+    у новых — выдаются (ревью RC-2026-10-13-2, К-1)."""
+    orders = orders_mod.ensure_ids([dict(o) for o in orders])
     return _save_versioned(record_id, user, base_version, "orders", "orders_version",
                            json.dumps(orders, ensure_ascii=False))
 

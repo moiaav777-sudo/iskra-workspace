@@ -56,8 +56,13 @@ def text_of(thesis: Thesis) -> str:
 
 
 def payload(thesis: Thesis) -> dict:
+    """`text` — пункты по строке (названия разделов в него не входят: их не произносят);
+    `html` — текст тезисов как есть, с разделами-заголовками h2 (решение пользователя 13.10,
+    единый формат блоков). «Совещание» сейчас читает только `text`; `html` — для него же,
+    когда приём научится брать оформленный текст."""
     return {
         "text": text_of(thesis),
+        "html": thesis.html,
         "minutes": thesis.minutes,
         "source": {"service": "theses", "id": thesis.id},
     }

@@ -15,6 +15,7 @@
 сборке, с Word (если включён) — его числа, уточнённые в фоне.
 Только стандартная библиотека.
 """
+import bisect
 import html
 import io
 import random
@@ -280,8 +281,56 @@ def _attr(value):
     return html.escape(str(value), quote=True)
 
 
-def read_brief(name, data):
-    """Прикреплённый файл → то, что нужно для вложения. Не бриф — MergeError с причиной."""
+def _is_page_break_p(p_xml):
+    """Абзац, в котором нет ничего, кроме разрыва страницы (и пустых абзацев рядом)."""
+    return not _text(p_xml).strip() and "<w:drawing" not in p_xml and "<w:pict" not in p_xml
+
+
+def _question_spans(body, tables):
+    """Границы вопросов в теле файла с несколькими брифами.
+
+    Вопрос начинается со своей таблицы «Вопрос / …» и длится до таблицы следующего: сюда попадают
+    абзацы после таблицы («К оглавлению», разрывы страниц). Хвост из пустых абзацев и разрывов
+    страниц срезается — каждый вопрос в сводном и так начинается с новой страницы, иначе между
+    ними вставали бы пустые листы. Всё до первой таблицы (заголовок файла, его содержание) в
+    сводный не идёт: у сводного они свои."""
+    spans = []
+    for i, (a, b, _c) in enumerate(tables):
+        end = tables[i + 1][0] if i + 1 < len(tables) else len(body)
+        # хвост — только абзацы верхнего уровня ПОСЛЕ таблицы вопроса: ни абзацы в её ячейках
+        # (ревью RC-2026-10-13-4, К-1), ни абзацы внутри второй таблицы или элемента управления
+        # после неё (ревью RC-2026-10-13-8, Н-9) не трогаем
+        # промежутки таблиц и sdt после таблицы вопроса — слитые и отсортированные, поиск двоичный:
+        # перебор «каждый абзац × каждая таблица» рос квадратично (ревью RC-2026-10-13-13, К-1)
+        inner: list[list[int]] = []
+        for x0, x1 in sorted(_spans(body, "tbl", b, end) + _spans(body, "sdt", b, end)):
+            if inner and x0 <= inner[-1][1]:
+                inner[-1][1] = max(inner[-1][1], x1)
+            else:
+                inner.append([x0, x1])
+        starts = [x0 for x0, _x1 in inner]
+
+        def inside(pos: int) -> bool:
+            k = bisect.bisect_right(starts, pos) - 1
+            return k >= 0 and pos < inner[k][1]
+
+        tail = [s for s in _spans(body, "p", b, end) if not inside(s[0])]
+        while tail and _is_page_break_p(body[slice(*tail[-1])]) and "w:anchor" not in body[slice(*tail[-1])]:
+            cut = tail.pop()[0]
+            k = bisect.bisect_left(starts, cut)
+            if k < len(starts) and starts[k] < end:
+                break                      # за этим абзацем ещё стоит таблица или sdt — хвост на них кончается (RC-12, К-1)
+            end = cut
+        spans.append((a, max(end, b)))
+    return spans
+
+
+def read_briefs(name, data):
+    """Прикреплённый файл → список брифов в нём (обычно один; документ с несколькими вопросами —
+    в том числе прежний сводный — по брифу на таблицу «Вопрос / …»). Не бриф — MergeError.
+
+    Решение пользователя 13.10: в документ, где уже десять брифов, одиннадцатый должен вставать
+    одиннадцатым — а не вклеиваться целым документом со вторым заголовком и оглавлением."""
     if data[:4] == b"\xd0\xcf\x11\xe0":
         raise MergeError(f"«{name}» — старый формат Word (.doc). Откройте его в Word и сохраните как .docx.")
     try:
@@ -304,28 +353,56 @@ def read_brief(name, data):
         raise MergeError(f"«{name}» повреждён: в нём нет текста документа.")
     body_at = m.start(1)
     body = m.group(1)
-    # бриф — это таблица «Вопрос / История / Текущий статус / …»: её первая ячейка «Вопрос»
-    table = None
+    # бриф — это таблица «Вопрос / История / Текущий статус / …»: её первая ячейка «Вопрос»;
+    # таких таблиц в файле может быть несколько — тогда это несколько брифов
+    tables = []
     for a, b in _spans(body, "tbl"):
         rows = _spans(body, "tr", a, b)
         cells = _spans(body, "tc", *rows[0]) if rows else []
         if len(cells) >= 2 and _text(body[slice(*cells[0])]).strip().rstrip(":").lower() == "вопрос":
-            table = (a, b, cells[1])
-            break
-    if not table:
+            tables.append((a, b, cells[1]))
+    if not tables:
         raise MergeError(f"«{name}» не похож на бриф: в нём нет таблицы «Вопрос / История / Текущий статус». "
                          "Объединяются только брифы.")
-    cell = table[2]
-    paras = [s for s in _spans(body, "p", *cell) if _text(body[slice(*s)]).strip()]
-    if not paras:
-        raise MergeError(f"«{name}»: в первой строке брифа не заполнен вопрос.")
     if re.search(r'<w:(footnote|endnote)Reference\b', body):
         raise MergeError(f"«{name}»: в брифе есть сноски — их объединение не поддерживается. "
                          "Уберите сноски или перенесите их в текст.")
-    title = re.sub(r"^\s*\d+\s*[.)]\s*", "", " ".join(_text(body[slice(*paras[0])]).split()))
-    return {"name": name, "zip": z, "root": xml[:xml.index(">", xml.index("<w:document")) + 1],
-            "body": body, "title": title, "title_p": paras[0], "table": table[:2],
-            "rels": _rels(z, "word/_rels/document.xml.rels", name), "body_at": body_at}
+    root = xml[:xml.index(">", xml.index("<w:document")) + 1]
+    rels = _rels(z, "word/_rels/document.xml.rels", name)
+    # «_top» (служебная ссылка Word «в начало документа») в сводном ведёт к содержанию — и у одиночного брифа
+    toc_anchors = {"_top"}
+    if len(tables) == 1:
+        spans = [(0, len(body))]
+    else:
+        spans = _question_spans(body, tables)
+        # закладки из отброшенной шапки файла (его заголовок, «Содержание»): ссылки «К оглавлению»
+        # на них теперь тоже ведут к содержанию сводного
+        toc_anchors |= set(re.findall(r'<w:bookmarkStart\b[^>]*w:name="([^"]*)"', body[:tables[0][0]]))
+    file_key = f"{name}:{len(data)}:{zlib.crc32(data) & 0xFFFFFFFF:08x}"
+    out = []
+    for k, ((a, b, cell), (s0, s1)) in enumerate(zip(tables, spans), 1):
+        part = body[s0:s1]
+        shift = s0
+        paras = [(p0 - shift, p1 - shift) for p0, p1 in _spans(body, "p", *cell) if _text(body[p0:p1]).strip()]
+        if not paras:
+            raise MergeError(f"«{name}»: в первой строке брифа{f' № {k}' if len(tables) > 1 else ''} не заполнен вопрос.")
+        title = re.sub(r"^\s*\d+\s*[.)]\s*", "", " ".join(_text(part[slice(*paras[0])]).split()))
+        out.append({"name": name, "zip": z, "root": root, "body": part, "title": title, "title_p": paras[0],
+                    "table": (a - shift, b - shift), "rels": rels, "body_at": body_at + s0,
+                    "index": k, "count": len(tables), "toc_anchors": toc_anchors,
+                    "file_key": file_key, "file_body": body})
+    return out
+
+
+def read_brief(name, data):
+    """Первый (обычно единственный) бриф файла — для проверок и прежних вызовов."""
+    return read_briefs(name, data)[0]
+
+
+# «К оглавлению» под таблицей — как у брифа, собранного сервисом (build_brief.region_body)
+TOC_LINK_P = ('<w:p/><w:p><w:hyperlink w:anchor="' + TOC_ANCHOR + '" w:history="1"><w:r><w:rPr><w:rStyle w:val="afa"/>'
+              + bb.FONT + '<w:b/><w:bCs/><w:i/><w:iCs/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr>'
+              '<w:t>К оглавлению</w:t></w:r></w:hyperlink></w:p>')
 
 
 # Поля Word, которые остаются в перенесённом брифе: только внутренние, ничего не тянут
@@ -433,15 +510,29 @@ def _check_xml(root, chunk, name):
                          "Откройте его в Word и сохраните как обычный .docx.")
 
 
-def _body_of(b, n, ids, media, new_rels, num_map):
-    """Тело n-го брифа для сводного: номер, закладка _Qn, свои закладки, связи и списки."""
+def _body_of(b, n, ids, media, new_rels, num_map, style_map=None):
+    """Тело n-го брифа для сводного: номер, закладка _Qn, свои закладки, связи, списки и стили."""
     body = b["body"]
     a, e = b["title_p"]
     p = _renumber(body[a:e], n)
+    # вопрос мог быть нумерованным заголовком Word (<w:numPr>, нумерация стиля): автоматический номер
+    # снимается — иначе рядом с нашим «n. » стоял бы ещё и свой «1.» (документ пользователя 13.10)
+    no_num = '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>'
+    if "<w:numPr>" in p:
+        p = re.sub(r"<w:numPr>.*?</w:numPr>", no_num, p, count=1, flags=re.S)      # на том же месте
+    elif "<w:pStyle " in p:
+        # у стиля может быть своя нумерация: ставим numPr по порядку схемы pPr —
+        # после pStyle, keepNext, keepLines, pageBreakBefore, framePr, widowControl (ревью RC-2026-10-13-4, Н-2)
+        head = re.match(r"(.*?<w:pPr>)((?:<w:(?:pStyle|keepNext|keepLines|pageBreakBefore|framePr|widowControl)\b[^>]*?/>)*)",
+                        p, flags=re.S)
+        if head:
+            p = head.group(1) + head.group(2) + no_num + p[head.end():]
     anchor = f"_Q{n}"
     at = p.index("</w:pPr>") + len("</w:pPr>") if "</w:pPr>" in p else p.index(">") + 1
     # номер закладки проставим после переименования чужих, иначе его задело бы совпадение
-    p = (p[:at] + f'<w:bookmarkStart w:id="QID" w:name="{anchor}"/>' + p[at:-len("</w:p>")]
+    # имя закладки тоже ставим после переименования чужих: во вложенном сводном уже есть свои «_Q1…»
+    # (13.10) — иначе наша и его слились бы в одну и содержание вело бы не туда
+    p = (p[:at] + '<w:bookmarkStart w:id="QID" w:name="QNAME"/>' + p[at:-len("</w:p>")]
          + '<w:bookmarkEnd w:id="QID"/></w:p>')
     body = body[:a] + p + body[e:]
     # окончание файла: его разметка страницы — уже от сводного документа
@@ -451,13 +542,13 @@ def _body_of(b, n, ids, media, new_rels, num_map):
     body = re.sub(r"<w:comment(?:RangeStart|RangeEnd|Reference)\b[^>]*/>", "", body)
     # закладки брифа: «К оглавлению» (_Toc1) теперь ведёт к содержанию сводного,
     # остальные получают приставку, чтобы брифы не перепутали ссылки друг друга
-    names = set(re.findall(r'<w:bookmarkStart\b[^>]*w:name="([^"]*)"', body)) - {anchor}
+    names = set(re.findall(r'<w:bookmarkStart\b[^>]*w:name="([^"]*)"', body)) - {"QNAME"}
     old_ids = {}
 
     def start(m):
         nm = re.search(r'w:name="([^"]*)"', m.group(0)).group(1)
         i = re.search(r'w:id="([^"]*)"', m.group(0)).group(1)
-        if nm == anchor:
+        if nm == "QNAME":
             return m.group(0)
         if nm == TOC_ANCHOR:
             old_ids[i] = None
@@ -474,11 +565,16 @@ def _body_of(b, n, ids, media, new_rels, num_map):
 
     body = re.sub(r"<w:bookmarkStart\b[^>]*/>", start, body)
     body = re.sub(r"<w:bookmarkEnd\b[^>]*/>", end, body)
-    body = body.replace('w:id="QID"', f'w:id="{next(ids)}"')
+    body = body.replace('w:id="QID"', f'w:id="{next(ids)}"').replace('w:name="QNAME"', f'w:name="{anchor}"')
     for nm in names - {TOC_ANCHOR}:
         new = (f"_M{n}" + nm)[:40]
         body = body.replace(f'w:anchor="{nm}"', f'w:anchor="{new}"')
         body = re.sub(rf"(\b(?:PAGEREF|REF)\s+){re.escape(nm)}\b", rf"\g<1>{new}", body)
+    # ссылки на шапку исходного файла с несколькими брифами (его заголовок, «_top») — к содержанию сводного
+    for nm in (b.get("toc_anchors") or set()) - names:
+        body = body.replace(f'w:anchor="{nm}"', f'w:anchor="{TOC_ANCHOR}"')
+    if f'w:anchor="{TOC_ANCHOR}"' not in body:
+        body += TOC_LINK_P                       # у вопроса нет «К оглавлению» — в сводном оно есть у каждого
     # связи: картинки копируются к себе, внешние ссылки заводятся заново, другого не бывает в брифе
     rid_map = {}
 
@@ -514,6 +610,10 @@ def _body_of(b, n, ids, media, new_rels, num_map):
     body = re.sub(r'\s+r:\w+="DROPLINK"', "", body)
     body = re.sub(r'(<w:numId w:val=")(\d+)(")',
                   lambda m: m.group(1) + num_map.get(m.group(2), m.group(2)) + m.group(3), body)
+    # переименованные стили — в самом конце: выше позиции title_p считались по исходному тексту
+    if style_map:
+        body = re.sub(r'(<w:(?:pStyle|rStyle|tblStyle) w:val=")([^"]*)(")',
+                      lambda m: m.group(1) + style_map.get(m.group(2), m.group(2)) + m.group(3), body)
     return body
 
 
@@ -535,7 +635,7 @@ def _import_numbering(numbering, b, n):
     src = src.decode("utf8", "replace")
     abstract_max = max([int(x) for x in re.findall(r'<w:abstractNum\b[^>]*w:abstractNumId="(\d+)"', numbering)] or [0])
     num_max = max([int(x) for x in re.findall(r'<w:num\b[^>]*w:numId="(\d+)"', numbering)] or [0])
-    used = set(re.findall(r'<w:numId w:val="(\d+)"', b["body"])) - {"0"}
+    used = set(re.findall(r'<w:numId w:val="(\d+)"', b.get("file_body") or b["body"])) - {"0"}   # на весь файл
     nums = {m.group(1): m.group(0) for m in re.finditer(r'<w:num\b[^>]*w:numId="(\d+)"[^>]*>.*?</w:num>', src, re.S)}
     abstracts = {m.group(1): m.group(0) for m in
                  re.finditer(r'<w:abstractNum\b[^>]*w:abstractNumId="(\d+)"[^>]*>.*?</w:abstractNum>', src, re.S)}
@@ -568,27 +668,70 @@ def _import_numbering(numbering, b, n):
     return numbering, nmap
 
 
-def _import_styles(styles, b):
-    """Стили, которых нет в шаблоне сводного, берутся из брифа (одноимённые — от шаблона)."""
+def _same_style(a, b):
+    """Одно и то же определение стиля (без служебных rsid и пробелов между тегами)."""
+    norm = lambda s: re.sub(r">\s+<", "><", re.sub(r'\s+w:rsid\w*="[^"]*"', "", s)).strip()
+    return norm(a) == norm(b)
+
+
+def _import_styles(styles, b, n):
+    """Стили брифа — в сводный. Стиль, которого нет в шаблоне, берётся как есть; стиль с тем же
+    номером и тем же определением — от шаблона (брифы сервиса собраны из этого же шаблона).
+
+    Стиль с тем же номером, но другим определением — это чужой документ, собранный в другом Word:
+    номера стилей («1», «a7», «31») там раздаются заново и совпадают случайно. Раньше побеждал
+    шаблон, и бриф пользователя 13.10 получил шапку таблицы заглавными от нашего «Plain Table 3»
+    вместо своей «Сетки таблицы». Теперь такой стиль переносится под своим именем с приставкой
+    M<n>, а ссылки на него в теле брифа переписываются (style_map) — бриф выглядит как в файле.
+    Возвращает (styles, style_map)."""
     src = _read(b["zip"], "word/styles.xml", b["name"])
     if src is None:
-        return styles
+        return styles, {}
     src = src.decode("utf8", "replace")
-    have = set(re.findall(r'<w:style\b[^>]*w:styleId="([^"]*)"', styles))
-    defs = {m.group(1): m.group(0) for m in re.finditer(r'<w:style\b[^>]*w:styleId="([^"]*)"[^>]*>.*?</w:style>', src, re.S)}
-    want = set(re.findall(r'<w:(?:pStyle|rStyle|tblStyle) w:val="([^"]*)"', b["body"]))
-    add = []
+    style_re = r'<w:style\b[^>]*w:styleId="([^"]*)"[^>]*>.*?</w:style>'
+    have = {m.group(1): m.group(0) for m in re.finditer(style_re, styles, re.S)}
+    defs = {m.group(1): m.group(0) for m in re.finditer(style_re, src, re.S)}
+    # стили — на весь файл сразу (он может нести несколько вопросов), а не на каждый вопрос
+    want = list(set(re.findall(r'<w:(?:pStyle|rStyle|tblStyle) w:val="([^"]*)"', b.get("file_body") or b["body"])))
+    seen, add, style_map = set(), [], {}
     while want:
         sid = want.pop()
-        if sid in have or sid not in defs:
+        if sid in seen or sid not in defs:
             continue
-        have.add(sid)
-        add.append(defs[sid])
-        want |= set(re.findall(r'<w:(?:basedOn|link|next) w:val="([^"]*)"', defs[sid]))
-    if add:
+        seen.add(sid)
+        xml = defs[sid]
+        if sid in have:
+            if _same_style(xml, have[sid]) or _is_default_style(xml):
+                # тот же стиль — от шаблона; стиль по умолчанию («Обычный», «Обычная таблица») — только
+                # шаблонный: второй «по умолчанию» перекрасил бы весь сводный (ревью RC-2026-10-13-4, К-2)
+                continue
+            style_map[sid] = f"M{n}_{sid}"[:64]      # с разделителем: M1+«31» и M13+«1» не совпадают (Н-10)
+        add.append((sid, xml))
+        want += re.findall(r'<w:(?:basedOn|link|next) w:val="([^"]*)"', xml)
+    out = []
+    for sid, xml in add:
+        new = style_map.get(sid, sid)
+        xml = re.sub(r'w:styleId="[^"]*"', f'w:styleId="{new}"', xml, count=1)
+        xml = re.sub(r'\s+w:default="(?:1|true|on)"', "", xml, count=1)     # «по умолчанию» остаётся у шаблона
+        xml = re.sub(r'(<w:(?:basedOn|link|next) w:val=")([^"]*)(")',
+                     lambda m: m.group(1) + style_map.get(m.group(2), m.group(2)) + m.group(3), xml)
+        if new != sid:                                # имя стиля тоже должно быть своим
+            xml = re.sub(r'(<w:name w:val=")([^"]*)(")', lambda m: m.group(1) + m.group(2) + f" (бриф {n})" + m.group(3), xml, count=1)
+        out.append(xml)
+    if out:
         at = styles.rindex("</w:styles>")
-        styles = styles[:at] + "".join(add) + styles[at:]
-    return styles
+        styles = styles[:at] + "".join(out) + styles[at:]
+        if len(styles) > MAX_STYLES:
+            raise MergeError(f"«{b['name']}»: слишком много стилей оформления для сводного. Откройте его в Word "
+                             "и сохраните как обычный .docx.")
+    return styles, style_map
+
+
+def _is_default_style(xml):
+    return bool(re.match(r'<w:style\b[^>]*\sw:default="(?:1|true|on)"', xml))
+
+
+MAX_STYLES = 4 * 1024 * 1024          # styles.xml сводного после всех вложений (ревью RC-2026-10-13-4, К-3)
 
 
 def _merge_root(root, parts):
@@ -608,19 +751,28 @@ def merge_files(files, out_docx, title="Бриф"):
     """Сводный из прикреплённых файлов брифов, в заданном порядке.
 
     files: [(имя файла, байты)]. Каждый бриф — с новой страницы, содержимое как в файле;
-    в первой строке второго столбца номер вопроса «1. », «2. » по порядку.
+    в первой строке второго столбца номер вопроса «1. », «2. » по порядку. Файл с несколькими
+    брифами (прежний сводный) даёт несколько вопросов подряд — номера сквозные.
     """
-    parts = [read_brief(name, data) for name, data in files]
+    parts = [p for name, data in files for p in read_briefs(name, data)]
     shell = bb.shell_parts()
     shell = dict(shell, files=dict(shell["files"]), infos=dict(shell["infos"]))
     numbering = shell["files"]["word/numbering.xml"].decode("utf8")
     styles = shell["files"]["word/styles.xml"].decode("utf8")
     ids = _Ids(1000)
     media, new_rels, items, chunks = {}, [], [], []
+    per_file = {}        # списки и стили файла переносятся один раз, сколько бы вопросов он ни нёс (К-3)
     for n, b in enumerate(parts, 1):
-        numbering, num_map = _import_numbering(numbering, b, n)
-        styles = _import_styles(styles, b)
-        chunk = page_break() + _body_of(b, n, ids, media, new_rels, num_map)
+        key = b.get("file_key") or n
+        if key not in per_file:
+            numbering, num_map = _import_numbering(numbering, b, n)
+            styles, style_map = _import_styles(styles, b, n)
+            if len(numbering) > MAX_STYLES:
+                raise MergeError(f"«{b['name']}»: слишком много списков для сводного. Откройте его в Word "
+                                 "и сохраните как обычный .docx.")
+            per_file[key] = (num_map, style_map)
+        num_map, style_map = per_file[key]
+        chunk = page_break() + _body_of(b, n, ids, media, new_rels, num_map, style_map)
         _check_xml(_merge_root(shell["root"], [b]), chunk, b["name"])
         chunks.append(chunk)
         items.append({"anchor": f"_Q{n}", "title": b["title"]})

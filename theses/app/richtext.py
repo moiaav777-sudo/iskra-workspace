@@ -73,6 +73,9 @@ class Block:
     level: int = 0            # вложенность списка / отступ
     align: str = ""           # center | right | justify
     runs: list[Run] = field(default_factory=list)
+    # уровень заголовка 1–3 (kind "h"): разделы тезисов — заголовки, панель ставит h1–h3,
+    # и что выбрано в редакторе, то и сохраняется (решение пользователя 13.10, единый формат блоков)
+    head: int = 2
 
     @property
     def text(self) -> str:
@@ -125,9 +128,11 @@ class _Reader(HTMLParser):
         self._skip = 0                        # внутри <script>/<style>: содержимое — не текст
 
     # ── блоки ────────────────────────────────────────────────────────────
-    def _open(self, kind: str, attrs: dict) -> None:
+    def _open(self, kind: str, attrs: dict, tag: str = "") -> None:
         self._close()
         block = Block(kind=kind)
+        if kind == "h" and tag[1:].isdigit():
+            block.head = min(3, max(1, int(tag[1:])))      # h4 панель не ставит — как h3
         if kind == "li":
             block.ordered = bool(self._lists and self._lists[-1])
             block.level = max(0, len(self._lists) - 1)
@@ -166,7 +171,7 @@ class _Reader(HTMLParser):
                 self._lists[-1] = kind == "ordered"
             self._open("li", attrs)
         elif tag in ("h1", "h2", "h3", "h4"):
-            self._open("h", attrs)
+            self._open("h", attrs, tag)
         elif tag == "blockquote":
             self._open("quote", attrs)
         elif tag == "pre":
@@ -324,7 +329,7 @@ def render(items: list[Block]) -> str:
             continue
         close_list()
         if block.kind == "h":
-            tag = "h2"
+            tag = f"h{min(3, max(1, block.head))}"
         elif block.kind == "quote":
             tag = "blockquote"
         elif block.kind == "pre":
@@ -406,8 +411,21 @@ def markdown_inline(text: str) -> str:
     return "".join(parts)
 
 
+def _part_title(part: str) -> str:
+    """Часть выступления («масштаб») → название раздела («Масштаб»)."""
+    part = " ".join((part or "").split())
+    return part[:1].upper() + part[1:]
+
+
 def html_from_bullets(bullets) -> str:
-    """Прежний вид (пункт + выделение) → HTML редактора. Заодно снимает Markdown."""
+    """Прежний вид (пункт + выделение) → HTML редактора. Заодно снимает Markdown.
+
+    Решение пользователя 13.10 («каждый раздел — отдельным блоком, как в модераторе»): если
+    у пунктов две и больше частей выступления (`part`: контекст, масштаб, вывод…), подряд
+    идущие пункты одной части собираются под заголовок `<h2>Часть</h2>` — в интерфейсе это
+    отдельный блок. Одна часть или ни одной — один список без заголовков, как раньше.
+    Пункт без части продолжает раздел перед ним.
+    """
     items = []
     for bullet in bullets:
         text = (bullet.text or "").strip()
@@ -418,8 +436,26 @@ def html_from_bullets(bullets) -> str:
             inner = f"<strong>{inner}</strong>"
         elif bullet.emphasis == "aside":
             inner = f'<em><span style="color:{ASIDE_COLOR}">{inner}</span></em>'
-        items.append(f"<li>{inner}</li>")
-    return f"<ul>{''.join(items)}</ul>" if items else ""
+        items.append((_part_title(getattr(bullet, "part", "")), f"<li>{inner}</li>"))
+    if not items:
+        return ""
+    parts = {part.lower() for part, _ in items if part}
+    if len(parts) < 2:
+        return f"<ul>{''.join(li for _, li in items)}</ul>"
+    out: list[str] = []
+    current = None                      # часть открытой группы
+    group: list[str] = []
+    for part, li in items:
+        if part and part.lower() != (current or "").lower():
+            if group:
+                out.append(f"<ul>{''.join(group)}</ul>")
+                group = []
+            out.append(f"<h2>{html.escape(part, quote=False)}</h2>")
+            current = part
+        group.append(li)
+    if group:
+        out.append(f"<ul>{''.join(group)}</ul>")
+    return "".join(out)
 
 
 def emphasis_of(block: Block) -> str:

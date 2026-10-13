@@ -8,8 +8,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/base.css">
-<link href="static/vendor/quill.snow.css" rel="stylesheet">
-<link rel="stylesheet" href="static/style.css?v=2">
+<!-- Редактор и блоки — общие на всё пространство, отдаёт портал (решение пользователя 13.10,
+     «единый формат блоков»): Quill, DOMPurify и компонент WorkspaceBlocks — /static/…
+     ?v= — дата правки компонента: поменял портал blocks.js — поднимаем и здесь, иначе браузер
+     держит старый компонент под новым app.js (ревью RC-2026-10-13-3, Н-5) -->
+<link rel="stylesheet" href="/static/vendor/quill.snow.css?v=20261013">
+<link rel="stylesheet" href="/static/blocks.css?v=20261013">
+<link rel="stylesheet" href="static/style.css?v=3">
 <!-- Общая полоса портала: переход к сервисам, имя пользователя, выход.
      Адрес абсолютный — это файлы портала, а не сервиса. -->
 <link rel="stylesheet" href="/static/workspace.css">
@@ -44,10 +49,9 @@
   </div>
 </div>
 <div id="toasts"></div>
-<!-- Редактор и очистка разметки — те же, что в «Совещании» (копия moderator/static/vendor);
-     общий трек вынесет их в portal/static -->
-<script src="static/vendor/quill.js"></script>
-<script src="static/vendor/purify.min.js"></script>
-<script src="static/app.js?v=5"></script>
+<script src="/static/vendor/quill.js?v=20261013"></script>
+<script src="/static/vendor/purify.min.js?v=20261013"></script>
+<script src="/static/blocks.js?v=20261013"></script>
+<script src="static/app.js?v=7"></script>
 </body>
 </html>

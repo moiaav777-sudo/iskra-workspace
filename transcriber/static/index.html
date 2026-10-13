@@ -5,7 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Транскрибатор</title>
 <link rel="stylesheet" href="/static/base.css">
-<link rel="stylesheet" href="static/style.css">
+<!-- единый формат блоков (решение пользователя 13.10): редактор и общий компонент отдаёт портал -->
+<link rel="stylesheet" href="/static/vendor/quill.snow.css">
+<link rel="stylesheet" href="/static/blocks.css">
+<!-- ?v=N — браузер перечитает файлы после выкладки (кроме того, сервис отдаёт static/ с no-cache) -->
+<link rel="stylesheet" href="static/style.css?v=4">
 <link rel="stylesheet" href="/static/workspace.css">
 <script src="/static/workspace-header.js" data-service="Транскрибатор" defer></script>
 </head>
@@ -89,35 +93,11 @@
     </div>
   </div>
 
-  <div class="detail-block" id="block-transcript">
-    <h4>Транскрипция <span class="hint">дословно, с таймкодами</span></h4>
-    <textarea id="draft-text" rows="12"></textarea>
-    <div class="detail-actions">
-      <button type="button" id="save-draft">Сохранить правку</button>
-      <a id="dl-transcript" href="#">Скачать Word</a>
-      <a id="dl-txt" href="#">Скачать текст</a>
-    </div>
-  </div>
-
-  <div class="detail-block" id="block-summary">
-    <h4>Саммари</h4>
-    <textarea id="summary-text" rows="8"></textarea>
-    <div class="detail-actions">
-      <button type="button" id="save-summary">Сохранить правку</button>
-      <a id="dl-summary" href="#">Скачать Word</a>
-    </div>
-  </div>
-
-  <div class="detail-block" id="block-orders">
-    <h4>Перечень поручений <span class="hint">срок — ДД.ММ.ГГГГ; нет срока — строки «Срок» в документе не будет</span></h4>
-    <div id="orders-list" class="orders"></div>
-    <p class="hint" id="orders-empty" hidden>Поручений нет.</p>
-    <div class="detail-actions">
-      <button type="button" class="ghost" id="add-order">Добавить поручение</button>
-      <button type="button" id="save-orders">Сохранить поручения</button>
-      <a id="dl-orders" href="#">Скачать Word</a>
-    </div>
-  </div>
+  <!-- Три документа — блоками общего компонента WorkspaceBlocks (решение пользователя 13.10:
+       «каждый раздел — отдельным блоком для форматирования, как в модераторе»). Карточки рисует
+       static/app.js; ссылки «Скачать Word / текст» — в подвале своей карточки (footerHtml). -->
+  <div id="doc-blocks"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <div class="detail-block" id="block-meeting" hidden>
     <h4>Совещание</h4>
@@ -153,7 +133,10 @@
   </div>
 </dialog>
 
-<script src="static/meeting.js"></script>
-<script src="static/app.js"></script>
+<script src="/static/vendor/quill.js"></script>
+<script src="/static/vendor/purify.min.js"></script>
+<script src="/static/blocks.js"></script>
+<script src="static/meeting.js?v=2"></script>
+<script src="static/app.js?v=4"></script>
 </body>
 </html>

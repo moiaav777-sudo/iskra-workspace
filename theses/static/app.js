@@ -4,7 +4,8 @@
    чтобы сервисы пространства не расходились: человек переходит между ними
    и переучиваться не должен. Своё здесь только то, что отличает сам сервис:
 
-   - текст правится одним редактором, как в Word: строка — тезис, «одна мысль»
+   - текст правится блоками по разделам — общим компонентом «единый формат блоков»
+     (решение пользователя 13.10, как сценарий «Совещания»); пункт — тезис, «одна мысль»
      (правила, п. 11); два выделения из образца — акцент и справочное;
    - места под недостающую фактуру `[ТРЕБУЕТСЯ …]` видны красным и собраны списком;
    - что нужно в тезисах, человек говорит голосом или пишет — «Искра» готовит текст;
@@ -229,7 +230,10 @@ function send(path, method, body, extra) {
     }
     const data = await api(path, opts, more.keep409);
     if (more.before) more.before(data);
-    if (data && data.thesis) applyThesis(data);
+    if (data && data.thesis) {
+      if (more.quiet) _takeThesis(data);
+      else applyThesis(data);
+    }
     return data;
   };
   const promise = _writeChain.then(run, run);
@@ -678,7 +682,7 @@ async function uploadPicked(boxId) {
 /* Одно окно для всего: и для пустых тезисов, и для заполненных. */
 async function iskraDialog() {
   if (_jobActive() || !_thesis) return;
-  await saveText();
+  if (!await _saveOpen()) return;      // набранное в открытом блоке — до «Искры»
   const t = _thesis;
   const rewrite = t.has_text;
   const boxId = 'i-files';
@@ -790,10 +794,20 @@ function askIskra() { return iskraDialog(); }
 // ── карточка тезисов ─────────────────────────────────────────────────────
 
 function applyThesis(data) {
+  _takeThesis(data);
+  render();
+  _syncListRow();
+}
+
+/* Принять ответ сервера без перерисовки: своё «Сохранить» в блоке — компонент сам закроет
+   редактор, страница перерисуется следом (ревью RC-2026-10-13-3, К-1). */
+function _takeThesis(data) {
   _thesis = data.thesis;
   _currentRev = data.rev;
   _inArchive = !!data.archived;
-  render();
+}
+
+function _syncListRow() {
   const row = theses.filter((t) => t.id === _thesis.id)[0];
   if (row) {
     row.bullets = _thesis.bullets.length;
@@ -804,9 +818,15 @@ function applyThesis(data) {
 }
 
 async function openThesis(id, quiet) {
-  // несохранённый набор — к своим тезисам, до того как уйти к другим
-  if (_editorDirty || _saving) await saveText();
-  if (id !== currentId) { _textConflict = null; _dropEditor(); }
+  // несохранённый набор — к своим тезисам, до того как уйти к другим; те же тезисы
+  // перечитываем без сохранения — открытый блок переживёт перерисовку (view.update)
+  if (id !== currentId && ((_view && _view.isDirty() && !await _saveOpen()) || _textConflict) &&
+      !await confirmDialog('Ваша правка в разделе не сохранилась. Перейти к другим тезисам без неё?',
+        'Несохранённая правка', 'Перейти', false)) {
+    window.location.hash = 'thesis=' + encodeURIComponent(currentId);   // остаёмся на своих
+    return;
+  }
+  if (id !== currentId) { _textConflict = null; _dropView(); }
   _epoch += 1;                     // экран перечитан — правки, сделанные по прежнему, устарели
   currentId = id;
   if (!quiet) window.location.hash = 'thesis=' + encodeURIComponent(id);
@@ -841,34 +861,19 @@ function render() {
   }
 
   html += '<div class="card">' + renderHead(t, who, editable) + '</div>';
+  // пока «Искра» пишет пустые тезисы, текста нет — но открытый блок с набором не прячем
+  const showText = !(_jobActive() && !t.has_text) || (_view && _view.isDirty());
   html += '<div class="card" id="text-block"><h2>Тезисы</h2>' +
     '<div id="job-box">' + renderJobBox() + '</div>' +
-    (_jobActive() && !t.has_text ? '' : renderText(t, editable)) +
+    (showText ? renderText(t, editable) : '') +
     '<div id="drafts-box">' + renderDrafts() + '</div></div>';
 
-  // Живой редактор с несохранённым набором или с курсором не пересобираем: иначе
-  // пропала бы правка или сбился курсор. Его переносим в новую разметку как есть.
-  const kept = _editorToKeep();
-  const selection = kept && _quill ? _quill.getSelection() : null;
-  // фокус на панели или в окошке ссылки: перенос обёртки его снимает — вернём туда же,
-  // а не в текст, иначе набираемая ссылка оборвалась бы (02.10)
-  const active = kept && document.activeElement !== _quill.root &&
-    kept.contains(document.activeElement) ? document.activeElement : null;
+  // Блоки (и открытый в них редактор) — один и тот же корень компонента: его переносим
+  // в новую разметку, а свежий текст отдаём view.update (решение пользователя 13.10).
   const scroll = window.scrollY;
   $('#workspace').innerHTML = html;
-  const slot = $('#editor-slot');
-  if (slot && kept) {
-    slot.replaceWith(kept);
-    if (active && active.focus) active.focus({ preventScroll: true });
-    else if (selection) { _quill.setSelection(selection.index, selection.length, 'silent'); }
-    window.scrollTo(0, scroll);
-  } else if (slot) {
-    _dropEditor();
-    _mountEditor();
-  } else {
-    _dropEditor();
-  }
-  _updateCounters();
+  _mountBlocks(t, editable);
+  if (_view && _view.editing()) window.scrollTo(0, scroll);
 }
 
 function renderHead(t, who, editable) {
@@ -999,7 +1004,7 @@ async function dropSource(id) {
 
 async function writeTheses(replace, asked, propose) {
   if (_jobActive()) return;          // второе нажатие второго прогона не запускает
-  await saveText();                  // набранное — до прогона, иначе оно спорило бы с «Искрой»
+  if (!await _saveOpen()) return;    // набранное — до прогона, иначе оно спорило бы с «Искрой»
   const pending = _drafts.filter((d) => d.has_draft);
   if (pending.length && !asked) {
     const go = await confirmDialog('По прошлому прогону есть вариант «Искры», по которому вы ещё ' +
@@ -1302,8 +1307,10 @@ async function cancelJob() {
 async function showDraft(jobId) {
   const id = jobId || (_job && _job.id);
   const data = await api('api/jobs/' + encodeURIComponent(id) + '/draft');
-  const body = data.html
-    ? '<div class="draft-list ql-editor thesis-view">' + _sanitizeHtml(data.html) + '</div>'
+  // вариант с разметкой — теми же блоками по разделам, только для чтения (13.10)
+  const blocksView = data.html && typeof WorkspaceBlocks !== 'undefined';
+  const body = blocksView
+    ? '<div class="draft-list" id="d-blocks"></div>'
     : '<ol class="draft-list">' + (data.bullets || []).map((b) => '<li>' + esc(b.text) + '</li>').join('') + '</ol>';
   const proposed = !!(_job && _job.id === id && _job.state === 'proposed');
   const ov = modal('<h3>' + (proposed ? 'Новая редакция от «Искры»' : 'Вариант «Искры»') + '</h3>' +
@@ -1315,6 +1322,11 @@ async function showDraft(jobId) {
     body +
     '<div class="modal-actions"><button class="btn ghost" id="d-keep">Оставить мой</button>' +
     '<button class="btn primary" id="d-take">Взять её вариант</button></div>', 'wide');
+  if (blocksView) {
+    WorkspaceBlocks.mount(ov.querySelector('#d-blocks'), { readOnly: true,
+      cards: [thesisCard(Object.assign({}, _thesis || {}, { html: data.html }), false,
+        splitSections(data.html))] });
+  }
   ov.querySelector('#d-keep').onclick = guarded(async function () {
     ov.remove();
     if (_job && _job.id === id && _job.has_draft) await discardDraft();
@@ -1328,7 +1340,9 @@ async function showDraft(jobId) {
       }, true);
       _notes = fresh.notes || [];
       if (_job && _job.id === id) _job = Object.assign({}, _job, { has_draft: false });
-      _dropEditor();
+      // текст заменён целиком: открытый блок закрываем — человек сам выбрал её вариант
+      if (_view && _view.editing()) _view.close();
+      _textConflict = null;
       applyThesis(fresh);
       loadDrafts(currentId);
       toast('Взят вариант «Искры»');
@@ -1368,174 +1382,522 @@ async function saveHead() {
   await loadTheses();
 }
 
-// ── текст: редактор Quill, как в «Совещании» ─────────────────────────────
+// ── текст: блоки по разделам — единый формат блоков ──────────────────────
 //
-// Задача пользователя 22.09 (п. 2, 3): нынешний редактор «максимально урезанный», нужен
-// такой же, как в «Совещании», со всеми его возможностями, и никакой разметки Markdown —
-// что видно в редакторе, то один в один уходит в Word. Редактор (Quill) и очистка
-// разметки (DOMPurify) взяты из `moderator/static/vendor`; общий трек потом вынесет их
-// в `portal/static`. Текст хранится как HTML, сервер чистит его ещё раз (`richtext.clean`).
+// Решение пользователя 13.10 («каждый раздел — отдельным блоком для форматирования, как
+// в модераторе; единый формат; все делаем одинаково»): текст тезисов показывается и
+// правится не одним большим редактором, а блоками общего компонента WorkspaceBlocks
+// (`/static/blocks.js` портала) — по разделу на блок, с общей панелью и кнопками
+// «Сохранить» / «Отмена», как сценарий в «Совещании».
 //
-// Сохраняется весь текст разом (`PUT …/text`) — через полторы секунды после набора и при
-// уходе из редактора, с версией, на которой начата правка: чужая правка за это время
-// не затирается, человек решает, вернуть ли свой текст.
+// Хранение не меняется: текст — один HTML (`Thesis.html`), сохраняется целиком
+// `PUT …/text {html, rev}`. Разделы — части этого HTML: заголовок h1–h3 и всё до
+// следующего заголовка; текст до первого заголовка — «Вступление» (или единственный
+// блок «Тезисы», если заголовков нет). Сохранение блока собирает весь HTML заново.
+// Сервер чистит разметку ещё раз (`richtext.clean`).
+//
+// Раздел опознаётся не по номеру, а по содержимому (ревью RC-2026-10-13-3, К-1): у блока
+// устойчивый ключ, который переходит от отрисовки к отрисовке по совпадению текста и
+// названия. Правленый раздел с несохранённым держит ключ, только пока он байт в байт такой,
+// каким был в начале правки (`_editBase`). Изменили или удалили его у коллеги — компонент
+// отдаёт набранное в `onEditLost`, и оно встаёт отдельным блоком «Ваш текст» с плашкой:
+// «Вставить как новый раздел» или «Не сохранять». Поверх чужого раздела оно не пишется никогда.
 
-let _quill = null;                      // живой редактор
-let _editorWrap = null;                 // его обёртка в разметке (переживает перерисовку)
-let _editorBase = { rev: 0, html: '' }; // версия и текст, от которых идёт правка
-let _editorDirty = false;               // есть несохранённое
-let _saving = null;                     // сохранение в пути (обещание)
-let _saveTimer = null;
-let _textConflict = null;               // мой текст, не сохранённый из-за чужой правки
-let _savedRange = null;                 // где стоял курсор перед окном «Нужна цифра»
-const SAVE_DELAY = 1500;
+let _view = null;          // блоки открытых тезисов (WorkspaceBlocks.mount)
+let _blocksRoot = null;    // их корень — переживает перерисовку страницы
+let _viewFor = '';         // для каких тезисов и в каком режиме смонтированы: «id|w» / «id|r»
+// раздел в начале правки: {key, head, title, body, rev}; rev — версия, от которой собран мой
+// HTML (сдвигается, только пока мой раздел в свежей версии тот же байт в байт)
+let _editBase = null;
+let _textConflict = null;  // {key, from, html, title, head, name}: мой текст, которому негде лечь
+let _newSection = null;    // {key, title}: «Добавить раздел» — до первого «Сохранить» только на экране
+let _keyed = { html: null, list: [] };   // разделы последней отрисовки с ключами
+let _keySeq = 0;
+let _savedRange = null;    // где стоял курсор перед окном «Нужна цифра»
 
-// Пропускаем ровно то, что ставит панель (единый набор, см. TOOLBAR_HTML), плюс синонимы
-// тех же оформлений (b, i, strike — так их пишут при вставке) и <pre> старых текстов: его
-// сервер (`richtext.clean`) хранит. h4, sub, sup панель не ставит, а сервер их оформление
-// не сохраняет — в редакторе они показывали бы то, чего в документе не будет (02.10).
-const _PURIFY_CFG = {
-  ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'ul', 'ol', 'li', 'a',
-    'h1', 'h2', 'h3', 'blockquote', 'pre', 'span'],
-  ALLOWED_ATTR: ['href', 'class', 'style'],
-  ALLOW_DATA_ATTR: true,   // хук ниже пропускает только data-list (разбор списков Quill)
-  ALLOW_ARIA_ATTR: false,
-  ALLOWED_URI_REGEXP: /^(?:https?:|mailto:)/i,
-  RETURN_DOM_FRAGMENT: true,
-};
-let _purifyReady = false;
+const _HEAD_RE = /<h([1-3])\b[^>]*>([\s\S]*?)<\/h\1>/gi;
 
-function _initPurify() {
-  if (_purifyReady) return true;
-  if (typeof DOMPurify === 'undefined' || !DOMPurify.isSupported) return false;
-  DOMPurify.addHook('uponSanitizeAttribute', function (node, data) {
-    if (/^data-/.test(data.attrName)) {
-      if (data.attrName !== 'data-list') data.keepAttr = false;
+/* Текст без разметки (название раздела, пустой ли блок). Разметка — от сервера
+   (`richtext.clean`), поэтому разбор регулярным выражением надёжен и работает без DOM. */
+function _plainOf(html) {
+  return String(html == null ? '' : html).replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+}
+
+/* HTML тезисов → разделы по порядку: [{id, head, title, body}]. Первый всегда «intro» —
+   текст до первого заголовка (может быть пустым); дальше «s0», «s1»… по заголовкам.
+   Это номера по порядку — для сборки; опознавать раздел по ним нельзя (`keyedSections`). */
+function splitSections(html) {
+  const src = String(html || '');
+  const out = [{ id: 'intro', head: '', title: '', body: '' }];
+  const re = new RegExp(_HEAD_RE.source, 'gi');
+  let last = 0;
+  let m;
+  while ((m = re.exec(src))) {
+    out[out.length - 1].body = src.slice(last, m.index);
+    out.push({ id: 's' + (out.length - 1), head: m[0], title: _plainOf(m[2]), body: '' });
+    last = m.index + m[0].length;
+  }
+  out[out.length - 1].body = src.slice(last);
+  return out;
+}
+
+function joinSections(sections) {
+  return sections.map((s) => (s.head || '') + (s.body || '')).join('');
+}
+
+function _headHtml(title) {
+  return title ? '<h2>' + esc(title) + '</h2>' : '';
+}
+
+function _sameSection(a, b) {
+  return !!a && !!b && a.head === b.head && a.body === b.body;
+}
+
+/* Разделы тезисов с устойчивыми ключами (К-1). Ключ переходит от прошлой отрисовки:
+   0) правленый раздел с несохранённым — только к разделу, байт в байт равному началу правки;
+   1) к разделу с тем же заголовком и текстом; 2) с тем же названием; 3) вступлению — «intro»;
+   остальным — новый ключ. Так вставка или удаление раздела выше не сдвигает ничьих ключей. */
+function keyedSections(html) {
+  const src = String(html || '');
+  if (_keyed.html === src) return _keyed.list;
+  const fresh = splitSections(src);
+  const prev = _keyed.list;
+  const used = {};
+  const pin = (_editBase && !_editBase.phantom && !_editBase.isNew && _view && _view.isDirty() &&
+    _view.editing() === _editBase.key) ? _editBase : null;
+  if (pin) {
+    used[pin.key] = true;                 // никому другому ключ правленого раздела не достаётся
+    const same = fresh.filter((f) => _sameSection(f, pin))[0];
+    if (same) {
+      same.key = pin.key;
+      pin.rev = _currentRev;              // мой раздел в этой версии тот же — правка идёт от неё
+    }
+  }
+  fresh.forEach(function (f) {
+    if (f.key) return;
+    const p = prev.filter((x) => !used[x.id] && _sameSection(x, f))[0];
+    if (p) { f.key = p.id; used[p.id] = true; }
+  });
+  fresh.forEach(function (f) {
+    if (f.key || !f.head) return;
+    const p = prev.filter((x) => !used[x.id] && x.head && x.title === f.title)[0];
+    if (p) { f.key = p.id; used[p.id] = true; }
+  });
+  fresh.forEach(function (f) {
+    if (!f.key && !f.head && !used.intro) { f.key = 'intro'; used.intro = true; }
+    if (!f.key) f.key = 'k' + (++_keySeq);
+    f.id = f.key;
+  });
+  _keyed = { html: src, list: fresh };
+  return fresh;
+}
+
+/* Весь HTML, где раздел `id` заменён набранным: текст блока и, если поле названия правили,
+   заголовок — <h2> (пустое название снимает заголовок: текст примкнёт к разделу выше).
+   Остальные разделы — как есть, со своими h1/h3 и выравниванием. Раздела нет — null:
+   набранное не кладётся ни на чужое место, ни в конец молча. */
+function withSection(sections, id, body, fields) {
+  const list = sections.map((s) => Object.assign({}, s));
+  const sec = list.filter((s) => s.id === String(id))[0];
+  if (!sec) return null;
+  const title = fields && typeof fields.title === 'string' ? fields.title.replace(/\s+/g, ' ').trim() : null;
+  if (title !== null && title !== sec.title) sec.head = _headHtml(title);
+  sec.body = body || '';
+  return joinSections(list);
+}
+
+// Цвет блока — по смыслу названия раздела (как виды блоков сценария «Совещания»).
+const _BUCKET_WORDS = [
+  ['org', ['контекст', 'вступление', 'введение']],
+  ['report', ['масштаб', 'результат', 'результаты', 'что сделано']],
+  ['problem', ['проблема', 'проблемы', 'риски']],
+  // «решение» — одна из частей выступления у «Искры» (iskra.py, part): это вывод, а не прочее
+  ['decision', ['вывод', 'выводы', 'заключение', 'решение', 'решения']],
+  ['action', ['поручение', 'поручения', 'задачи', 'предложения']],
+];
+
+function bucketOf(label) {
+  const t = String(label || '').toLowerCase().replace(/ё/g, 'е').replace(/[«»"'.,:;!?()]/g, '')
+    .replace(/\s+/g, ' ').trim();
+  for (let i = 0; i < _BUCKET_WORDS.length; i++) {
+    const words = _BUCKET_WORDS[i][1];
+    if (words.some((w) => t === w || t.indexOf(w + ' ') === 0)) return _BUCKET_WORDS[i][0];
+  }
+  return 'org';
+}
+
+// текст по пунктам из HTML — для счётчика; названия разделов не произносят, их не считаем
+function richLines(html) {
+  const out = [];
+  String(html || '').replace(/<(p|li|blockquote|pre)\b[^>]*>([\s\S]*?)<\/\1>/gi, function (m, tag, inner) {
+    const text = _plainOf(inner);
+    if (text) out.push(text);
+    return m;
+  });
+  return out;
+}
+
+/* «N пунктов · X из Y мин» — как раньше под редактором, теперь в шапке карточки. */
+function _countNote(t) {
+  const lines = richLines(t.html || '');
+  const words = lines.reduce((n, l) => n + l.split(/\s+/).length, 0);
+  const wpm = t.words_per_minute || 120;
+  const minutes = Math.round(words / wpm * 10) / 10;
+  return plural(lines.length, 'пункт', 'пункта', 'пунктов') + ' · ' +
+    String(minutes).replace('.', ',') + ' из ' + t.minutes + ' мин' +
+    (minutes > t.minutes * 1.15 ? ' — дольше отведённого' : '');
+}
+
+/* Карточка «Тезисы выступления»: блок на раздел. Вступление без текста при разделах
+   не показываем; единственный блок «Тезисы» не удаляется — это весь текст. `sections` —
+   для чужого текста (вариант «Искры» в окне): без них — разделы открытых тезисов с ключами,
+   мой текст, которому негде лечь, и несохранённый «Новый раздел». */
+function thesisCard(t, editable, sections) {
+  const own = !sections;
+  const list = sections || keyedSections(t.html || '');
+  const heads = list.length > 1;
+  const blocks = [];
+  list.forEach(function (s) {
+    if (!s.head) {
+      const blank = !_plainOf(s.body);
+      if (blank && (heads || !editable)) return;
+      blocks.push({ id: s.id, label: heads ? 'Вступление' : 'Тезисы', bucket: 'org', html: s.body,
+        deletable: heads,
+        placeholder: heads ? '(нажмите, чтобы написать вступление)'
+          : '(нажмите, чтобы написать: по одному предложению в пункте)' });
       return;
     }
-    if (data.attrName === 'style') {
-      // из style — только цвет текста и заливка: остальное в Word не идёт и в базе не нужно
-      const keep = String(data.attrValue || '').split(';').map((s) => s.trim()).filter((s) =>
-        /^(color|background-color)\s*:\s*(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/i.test(s));
-      if (keep.length) data.attrValue = keep.join(';');
-      else data.keepAttr = false;
-      return;
-    }
-    if (data.attrName !== 'class') return;
-    const keep = String(data.attrValue || '').split(/\s+/).filter(function (c) {
-      return /^ql-(align|indent)-[a-z0-9]+$/.test(c);
+    blocks.push({ id: s.id, label: s.title || 'Раздел', bucket: bucketOf(s.title), html: s.body,
+      fields: [{ name: 'title', label: 'Название раздела', value: s.title }] });
+  });
+  if (own && editable && _textConflict) {
+    const c = _textConflict;
+    blocks.push({ id: c.key, label: 'Ваш текст' + (c.name ? ' — «' + c.name + '»' : '') + ', не сохранён',
+      bucket: 'problem', html: c.html, deletable: false,
+      fields: c.head ? [{ name: 'title', label: 'Название раздела', value: c.title }] : undefined });
+  }
+  if (own && editable && _newSection) {
+    blocks.push({ id: _newSection.key, label: 'Новый раздел', bucket: bucketOf(_newSection.title), html: '',
+      deletable: false, placeholder: '(раздел появится в тексте после «Сохранить»)',
+      fields: [{ name: 'title', label: 'Название раздела', value: _newSection.title }] });
+  }
+  return { id: 'thesis', title: 'Тезисы выступления', note: _countNote(t),
+    actions: editable ? [{ act: 'add', label: 'Добавить раздел', title: 'Новый раздел в конце текста' }] : [],
+    empty: 'Здесь появятся тезисы.', blocks: blocks };
+}
+
+function _dropView() {
+  if (_view) _view.destroy();
+  _view = null;
+  _blocksRoot = null;
+  _viewFor = '';
+  _editBase = null;
+  _newSection = null;
+  _keyed = { html: null, list: [] };
+}
+
+function _refreshCard() {
+  if (_view && _thesis) _view.update([thesisCard(_thesis, _canEdit())]);
+  _refreshConflictBox();
+}
+
+/* Поставить блоки на место заглушки #blocks-slot: при первой отрисовке — смонтировать,
+   дальше — тот же корень и view.update (открытый редактор переживает перерисовку, если его
+   раздел на месте; нет — `onEditLost`). Плашка — после update: она зависит от его итога (К-3). */
+function _mountBlocks(t, editable) {
+  const slot = $('#blocks-slot');
+  if (!slot) return;
+  if (typeof WorkspaceBlocks === 'undefined') {
+    slot.innerHTML = '<div class="notice">Редактор не загрузился — обновите страницу.</div>';
+    return;
+  }
+  const key = t.id + '|' + (editable ? 'w' : 'r');
+  if (_view && _viewFor !== key) _dropView();
+  if (_view && _textConflict && _view.editing() === _textConflict.key) _syncMine();
+  const card = thesisCard(t, editable);
+  if (!_view) {
+    _blocksRoot = document.createElement('div');
+    _blocksRoot.className = 'thesis-blocks';
+    slot.replaceWith(_blocksRoot);
+    _viewFor = key;
+    _view = WorkspaceBlocks.mount(_blocksRoot, {
+      cards: [card],
+      readOnly: !editable,
+      placeholder: 'Пишите по одному предложению в пункте…',
+      toolbarExtra: [{ name: 'marker', label: 'Нужна цифра',
+        title: 'Поставить место под недостающую цифру или сведение — [нужна цифра: …]. ' +
+          'В документе оно выделено, чтобы не ушло незамеченным',
+        handler: function (quill) { insertMarker(quill); } }],
+      onSave: _saveSection,
+      onDelete: _deleteSection,
+      onAction: function (p) { if (p.act === 'add') _addSection(); },
+      onEditOpen: _onEditOpen,
+      onEditClose: _onEditClose,
+      onEditLost: _onEditLost
     });
-    if (keep.length) data.attrValue = keep.join(' ');
-    else data.keepAttr = false;
-  });
-  DOMPurify.addHook('afterSanitizeAttributes', function (node) {
-    if (node.tagName === 'A' && node.hasAttribute('href')) {
-      node.setAttribute('target', '_blank');
-      node.setAttribute('rel', 'noopener noreferrer');
+  } else {
+    slot.replaceWith(_blocksRoot);
+    _view.update([card]);
+    // открытый без правки редактор компонент переносит живым — со старым текстом; раздел
+    // изменили — открываем его заново со свежим, правка начнётся от него (Н-1)
+    const openKey = _view.editing();
+    const b = _editBase;
+    if (openKey && !_view.isDirty() && b && b.key === openKey && !b.phantom && !b.isNew) {
+      const sec = keyedSections(t.html || '').filter((s) => s.id === openKey)[0];
+      if (sec && !_sameSection(sec, b)) {
+        _view.close();
+        _view.open(openKey);
+      }
     }
-  });
-  _purifyReady = true;
+  }
+  _refreshConflictBox();
+}
+
+function _onEditOpen(block) {
+  const key = String(block.id);
+  if (_textConflict && key === _textConflict.key) {
+    _editBase = { key: key, phantom: true };
+    // набранное в блоке «Ваш текст» — сразу в плашку: «Отмена» его не потеряет
+    const q = _view && _view.quill();
+    if (q) q.on('text-change', _syncMine);
+    const inp = _blocksRoot && _blocksRoot.querySelector('[data-block="' + key + '"] input[name="title"]');
+    if (inp) inp.addEventListener('input', _syncMine);
+    return;
+  }
+  if (_newSection && key === _newSection.key) {
+    if (!_editBase || _editBase.key !== key) {
+      _editBase = { key: key, isNew: true, head: '', title: '', body: '', rev: _currentRev };
+    }
+    return;
+  }
+  if (_newSection) {                     // открыли другой блок — пустой «Новый раздел» убираем
+    _newSection = null;
+    Promise.resolve().then(_refreshCard);
+  }
+  // открыт заново после перерисовки без несохранённого — правка начинается от свежего текста (Н-1)
+  const dirty = !!(_view && _view.isDirty());
+  if (_editBase && _editBase.key === key && dirty) return;
+  const sec = _thesis ? keyedSections(_thesis.html || '').filter((s) => s.id === key)[0] : null;
+  _editBase = { key: key, head: sec ? sec.head : '', title: sec ? sec.title : '',
+    body: sec ? sec.body : (block.html || ''), rev: _currentRev };
+}
+
+function _onEditClose(block) {
+  _editBase = null;
+  if (_newSection && block && String(block.id) === _newSection.key) {
+    _newSection = null;                   // «Отмена» у нового раздела — его и не было (Н-2)
+    Promise.resolve().then(_refreshCard);
+  }
+  _refreshConflictBox();
+}
+
+/* Открытого раздела после перерисовки нет: его изменили или удалили, пока я писал (К-1, К-3).
+   Набранное не теряется и не ложится на чужое место: отдельный блок «Ваш текст» и плашка. */
+function _onEditLost(keep) {
+  const base = _editBase && _editBase.key === String(keep.id) ? _editBase : null;
+  _editBase = null;
+  if (!keep.dirty) return;                // нечего терять — редактор просто закрыт
+  const fields = keep.fields || {};
+  _textConflict = { key: 'm' + (++_keySeq), from: String(keep.id), html: keep.html || '',
+    title: typeof fields.title === 'string' ? fields.title : (base ? base.title : ''),
+    head: base ? !!base.head : true, name: base ? base.title : '' };
+  Promise.resolve().then(_showMine);
+}
+
+function _showMine() {
+  const c = _textConflict;
+  if (!c || !_view || !_thesis) return;
+  _view.update([thesisCard(_thesis, _canEdit())]);
+  if (!_view.editing()) _view.open(c.key, c.html);
+  _refreshConflictBox();
+}
+
+function _syncMine() {
+  const c = _textConflict;
+  if (!c || !_view || _view.editing() !== c.key) return;
+  c.html = _view.html();
+  const f = _view.fields() || {};
+  if (typeof f.title === 'string') c.title = f.title;
+}
+
+/* Своё, что уже в очереди, — сначала: HTML собирается от той версии, которая будет на руках
+   в момент отправки, и версия (`rev`) подставляется тогда же (`send`). */
+async function _putText(build, extra) {
+  await _writeChain;
+  return send(tPath('/text'), 'PUT', { html: build() }, extra);
+}
+
+function _lostToast() {
+  toast('Ваш текст не сохранён: раздел изменили или удалили, пока вы писали, — коллега или «Искра». ' +
+    'Поверх их текста он не ляжет: он в блоке «Ваш текст» — вставьте его новым разделом или откажитесь ' +
+    '(плашка над текстом).', 'err');
+}
+
+/* «Сохранить» в блоке: весь HTML с этим разделом → PUT …/text от свежей версии — мой раздел
+   в ней тот же, что в начале правки (иначе он ушёл бы в `onEditLost`). 409: свежий текст на
+   экран; мой раздел у них не менялся — сохраняем ещё раз сами, менялся — «Ваш текст».
+   Отказ «stale» оставляет редактор открытым (контракт компонента). */
+async function _saveSection(p) {
+  const key = String(p.block.id);
+  const tid = currentId;
+  if (_textConflict && key === _textConflict.key) {
+    toast('Поверх чужого раздела этот текст не сохраняется. Выберите в плашке над текстом: ' +
+      '«Вставить как новый раздел» или «Не сохранять».', 'err');
+    throw new Error('stale');
+  }
+  const isNew = !!(_newSection && key === _newSection.key);
+  const fields = p.fields || {};
+  let startSec = null;                    // раздел, поверх которого пошла первая попытка
+  for (let attempt = 0; ; attempt++) {
+    await _writeChain;
+    if (currentId !== tid || !_thesis) throw new Error('stale');
+    let html;
+    if (isNew) {
+      const title = String(fields.title || '').replace(/\s+/g, ' ').trim() || 'Новый раздел';
+      html = (_thesis.html || '') + _headHtml(title) + p.html;
+    } else {
+      const list = keyedSections(_thesis.html || '');
+      const sec = list.filter((s) => s.id === key)[0];
+      const base = _editBase && _editBase.key === key ? _editBase : null;
+      const ref = startSec || base;
+      if (!sec || (ref && !_sameSection(sec, ref))) {
+        // раздел уже не тот — сюда не пишем
+        if (ref && p.html === ref.body && (typeof fields.title !== 'string' || fields.title.trim() === _plainOf(ref.head))) {
+          toast('Раздел изменили, пока он был открыт, — на экране их вариант.', 'err');
+          throw new Error('stale');               // своего в блоке не было — терять нечего
+        }
+        // набранное уходит в «Ваш текст»
+        _textConflict = { key: 'm' + (++_keySeq), from: key, html: p.html,
+          title: typeof fields.title === 'string' ? fields.title : (base ? base.title : ''),
+          head: base ? !!base.head : true, name: base ? base.title : '' };
+        _editBase = null;
+        Promise.resolve().then(_showMine);
+        _lostToast();
+        throw new Error('stale');
+      }
+      if (!startSec) startSec = { head: sec.head, body: sec.body };
+      html = withSection(list, key, p.html, fields);
+    }
+    try {
+      await send(tPath('/text'), 'PUT', { html: html }, { keep409: true, quiet: true });
+      break;
+    } catch (e) {
+      if (currentId !== tid) throw e;
+      if (e.detail && e.detail.current && attempt < 2) {
+        const lostBefore = _textConflict;
+        applyThesis(e.detail.current);           // перерисовка: мой раздел тот же — ключ при нём
+        if (_textConflict && _textConflict !== lostBefore) { _lostToast(); throw new Error('stale'); }
+        if (!_view || _view.editing() !== key) throw new Error('stale');
+        continue;                                 // чужая правка — в другом месте: сохраняем от неё
+      }
+      if (e.message !== 'stale' && e.message !== 'unauth') toast('Текст не сохранился: ' + e.message, 'err');
+      throw e;
+    }
+  }
+  _editBase = null;
+  if (isNew) _newSection = null;
+  // компонент закроет редактор, страница перерисуется следом — со свежим текстом
+  setTimeout(function () { if (_thesis && currentId === tid) { render(); _syncListRow(); } }, 0);
   return true;
 }
 
-function _sanitizeHtml(html) {
-  if (!_initPurify()) {
-    const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
-    return esc(doc.body ? doc.body.textContent : '');
+function _blockedByOpen(except) {
+  if (!(_view && _view.isDirty()) || (except && _view.editing() === except)) return false;
+  toast('Сначала сохраните или отмените правку в открытом разделе', 'err');
+  return true;
+}
+
+/* ✕ — убрать раздел целиком, с подтверждением. false — компонент не закрывает редактор
+   (человек передумал — набранное в блоке не пропадает). */
+async function _deleteSection(p) {
+  const key = String(p.block.id);
+  if (_blockedByOpen(key)) return false;
+  const name = key === 'intro' ? 'вступление' : 'раздел «' + (p.block.label || '') + '»';
+  if (!await confirmDialog('Удалить ' + name + ' целиком — вместе с текстом?' +
+    (p.dirty ? ' Несохранённая правка в нём тоже пропадёт.' : ''), 'Удалить раздел', 'Удалить')) return false;
+  // открытый редактор закрываем до запроса: удаляемый раздел — не «потерянный» (К-3)
+  if (_view && _view.editing()) _view.close();
+  await _putText(() => joinSections(keyedSections(_thesis.html || '').filter((s) => s.id !== key)));
+  toast('Раздел удалён');
+  return true;
+}
+
+/* «Добавить раздел»: блок с названием и пустым текстом — только на экране; в тексте он
+   появится после первого «Сохранить», «Отмена» его убирает (Н-2). Повторное нажатие
+   открывает тот же блок, второго не заводит. */
+function _addSection() {
+  if (!_view || !_thesis) return;
+  if (_newSection) { _view.open(_newSection.key); return; }
+  if (_blockedByOpen()) return;
+  if (_view.editing()) _view.close();
+  _newSection = { key: 'n' + (++_keySeq), title: 'Новый раздел' };
+  _refreshCard();
+  _view.open(_newSection.key);
+}
+
+function _conflictHtml() {
+  const c = _textConflict;
+  if (!c) return '';
+  return '<div class="job-box warn" role="alert"><b>Раздел ' + (c.name ? '«' + esc(c.name) + '» ' : '') +
+    'изменили или удалили, пока вы писали</b>' +
+    '<div>Изменили коллега или «Искра». Ваш текст не пропал — он ниже, в блоке «Ваш текст». ' +
+    'Поверх их раздела он не сохраняется, чтобы не затереть чужую правку.</div>' +
+    '<div class="job-actions"><button class="btn primary" onclick="insertMine()">' +
+    'Вставить как новый раздел</button><button class="btn ghost" onclick="dropMine()">' +
+    'Не сохранять</button></div></div>';
+}
+
+function _refreshConflictBox() {
+  const box = $('#conflict-box');
+  if (box) box.innerHTML = _conflictHtml();
+}
+
+/* «Вставить как новый раздел»: мой текст — разделом в конце (с моим названием), а текст
+   вступления — в начало. Чужое не трогается: вставка ложится на любую свежую версию. */
+async function insertMine() {
+  const c = _textConflict;
+  if (!c || !_thesis) return;
+  if (_blockedByOpen(c.key)) return;
+  _syncMine();
+  const html = c.html;
+  const title = String(c.title || '').replace(/\s+/g, ' ').trim() || c.name || 'Мой текст';
+  _textConflict = null;
+  if (_view && _view.editing() === c.key) _view.close();
+  try {
+    for (let attempt = 0; ; attempt++) {
+      await _writeChain;
+      const cur = _thesis.html || '';
+      const out = c.head ? cur + _headHtml(title) + html : html + cur;
+      try {
+        await send(tPath('/text'), 'PUT', { html: out }, { keep409: true });
+        break;
+      } catch (e) {
+        if (e.detail && e.detail.current && attempt < 2) { applyThesis(e.detail.current); continue; }
+        throw e;
+      }
+    }
+    toast(c.head ? 'Ваш текст вставлен новым разделом в конце' : 'Ваш текст вставлен в начало, во вступление');
+  } catch (e) {
+    _textConflict = c;                     // не сохранилось — текст снова в блоке и в плашке
+    _refreshCard();
+    if (e.message !== 'stale' && e.message !== 'unauth') toast('Не сохранилось: ' + e.message, 'err');
   }
-  const frag = DOMPurify.sanitize(String(html || ''), _PURIFY_CFG);
-  if (!frag) return '';
-  const doc = frag.ownerDocument;
-  const d = doc.createElement('div');
-  d.appendChild(frag);
-  // Quill 2 хранит списки как <ol><li data-list="bullet">; вне Quill такой <ol> рисуется
-  // цифрами — приводим к обычным <ul>/<ol>
-  d.querySelectorAll('ol,ul').forEach(function (list) {
-    const firstLi = list.querySelector(':scope > li');
-    const listKind = (list.getAttribute('data-list') || (firstLi && firstLi.getAttribute('data-list')) || '').toLowerCase();
-    let tag = '';
-    if (list.tagName === 'OL' && listKind === 'bullet') tag = 'ul';
-    else if (list.tagName === 'UL' && listKind === 'ordered') tag = 'ol';
-    if (!tag) return;
-    const repl = doc.createElement(tag);
-    while (list.firstChild) repl.appendChild(list.firstChild);
-    if (list.getAttribute('class')) repl.setAttribute('class', list.getAttribute('class'));
-    list.parentNode.replaceChild(repl, list);
-  });
-  d.querySelectorAll('[data-list]').forEach(function (n) { n.removeAttribute('data-list'); });
-  d.querySelectorAll('span').forEach(function (n) {
-    if (!n.attributes.length && !n.children.length && !n.textContent.trim()) n.remove();
-  });
-  return d.innerHTML;
 }
 
-function _setQuillHtml(q, html) {
-  if (q.clipboard && q.clipboard.dangerouslyPasteHTML) q.clipboard.dangerouslyPasteHTML(html || '');
-  else q.root.innerHTML = html || '';
-}
-
-function _editorHtml() {
-  if (!_quill) return '';
-  return _sanitizeHtml(_quill.root.innerHTML).replace(/(<p><br><\/p>)+$/, '');
-}
-
-function _editorToKeep() {
-  if (!_quill || !_editorWrap || !_thesis) return null;
-  if (_editorDirty || _saving) return _editorWrap;         // несохранённое не трогаем
-  const same = (_thesis.html || '') === _editorBase.html;
-  // человек в палитре цвета или в окошке ссылки — тоже «в редакторе» (жалоба 02.10)
-  if (same && _focusInEditor()) {
-    _editorBase.rev = _currentRev;                          // текст тот же — правка от новой версии
-    return _editorWrap;
-  }
-  return null;
-}
-
-function _dropEditor() {
-  _quill = null;
-  _editorWrap = null;
-}
-
-/* Человек всё ещё работает с редактором: курсор в тексте, фокус на панели (палитра цвета,
-   выбор заголовка, окошко ссылки) или палитра открыта. Жалоба 02.10: «не могу поменять цвет
-   текста — слетает выделение». Нажатие на палитру уводило фокус из текста, это считалось
-   уходом из редактора, и редактор пересобирался вместе с выделением и открытой палитрой. */
-function _focusInEditor() {
-  if (!_quill || !_editorWrap) return false;
-  if (_quill.hasFocus()) return true;
-  const active = document.activeElement;
-  if (active && active !== document.body && _editorWrap.contains(active)) return true;
-  // на телефоне касание палитры отдаёт фокус странице, а человек ещё выбирает цвет
-  // (у спрятанного окошка ссылки ql-editing остаётся — Quill снимает только видимость)
-  return !!_editorWrap.querySelector('.ql-picker.ql-expanded, .ql-tooltip.ql-editing:not(.ql-hidden)');
-}
-
-const LEAVE_DELAY = 200;      // мс: фокус успевает дойти до нового места (палитра, окошко ссылки)
-
-/* Фокус покинул элемент внутри обёртки редактора. Уход внутрь неё же (текст → панель,
-   палитра → текст) — не уход: ни сохранения с пересборкой, ни сброса выделения. Ушли
-   за пределы — сохраняем сразу и пересобираем с пометками, как раньше. */
-function _onEditorFocusOut(wrap, e) {
-  const to = e && e.relatedTarget;
-  if (to && wrap.contains(to)) return;
-  setTimeout(function () { _editorLeft(wrap); }, LEAVE_DELAY);
-}
-
-function _editorLeft(wrap) {
-  if (_editorWrap !== wrap || _focusInEditor()) return;     // пересобран или вернулись
-  saveText().then(_refreshEditor, function () {});
+async function dropMine() {
+  const c = _textConflict;
+  if (!c) return;
+  if (!await confirmDialog('Ваш текст пропадёт, в тезисах останется их вариант. Не сохранять?',
+    'Не сохранять', 'Не сохранять')) return;
+  _textConflict = null;
+  if (_view && _view.editing() === c.key) _view.close();
+  _refreshCard();
 }
 
 function renderText(t, editable) {
-  let html = '';
-  if (_textConflict) {
-    html += '<div class="job-box warn" role="alert"><b>Ваша правка не сохранена</b>' +
-      '<div>Пока вы писали, тезисы изменили — коллега или «Искра». Ниже — их вариант. ' +
-      'Ваш текст не пропал: его можно вернуть, и тогда он заменит этот.</div>' +
-      '<div class="job-actions"><button class="btn primary" onclick="restoreMine()">' +
-      'Вернуть мой текст</button><button class="btn ghost" onclick="dropMine()">' +
-      'Оставить как есть</button></div></div>';
-  }
+  let html = '<div id="conflict-box">' + _conflictHtml() + '</div>';
   const mixed = t.mixed_words || [];
   if (mixed.length) {
     html += '<div class="notice mixed-note"><b>Поправьте слова наполовину латиницей</b> — пока ' +
@@ -1555,17 +1917,12 @@ function renderText(t, editable) {
         .join(', ') +
       '. Их нет в приложенных материалах — поправьте по-русски, прежде чем выгружать.</div>';
   }
-  if (editable) {
-    html += '<div id="editor-slot"></div>' +
-      '<div class="editor-foot"><span id="save-state" class="save-state"></span>' +
-      '<span id="editor-count" class="muted"></span></div>' +
-      '<div class="editor-hint muted" id="editor-hint"' + (t.has_text ? ' hidden' : '') +
-      '>Пишите по одному предложению в пункте — Enter начинает следующий. ' +
-      'Или нажмите «Написать с «Искрой»…», и начнёт она.</div>';
-  } else if (t.has_text) {
-    html += '<div class="thesis-view ql-editor">' + _sanitizeHtml(t.html || '') + '</div>';
-  } else {
-    html += '<div class="empty">Здесь появятся тезисы.</div>';
+  // блоки по разделам — сюда ставится корень компонента (_mountBlocks); без права правки
+  // те же блоки только для чтения
+  html += '<div id="blocks-slot"></div>';
+  if (editable && !t.has_text) {
+    html += '<div class="editor-hint muted">Пишите по одному предложению в пункте — Enter начинает ' +
+      'следующий. Или нажмите «Написать с «Искрой»…», и начнёт она.</div>';
   }
 
   const refs = (t.refs || []).filter((r) => r.name || r.url);
@@ -1592,206 +1949,29 @@ function renderText(t, editable) {
   return html;
 }
 
-// Палитры цвета и заливки — только то, что сервер сохраняет (`app/richtext.py`), причём
-// в любом сочетании «цвет × заливка». Сервер снимает светлый цвет текста и тёмную заливку
-// (невидимый текст в Word), а цвет на заливке близкой яркости (разница < 0,3) — тоже.
-// С полной палитрой жёлтый текст, тёмная заливка и, например, красный на сиреневой
-// заливке пропадали после сохранения — «цвет не меняется» (жалоба 02.10, ревью
-// RC-2026-10-02-14, Н-3). Поэтому заливки — только светлые (яркость от 0,85), цвета
-// текста — не светлее 0,55: любая пара расходится по яркости больше чем на 0,3.
-// Перебор всех пар через функции сервера — `tests/test_static_palette.py`.
-// Первый пункт без значения — «убрать цвет / заливку», как у Quill по умолчанию: он
-// рисуется чёрным (цвет) и белым (заливка).
-const TEXT_COLORS = ['#e60000', '#008a00', '#0066cc', '#9933ff', '#888888', '#a10000', '#b26b00',
-  '#006100', '#0047b2', '#6b24b2', '#444444', '#5c0000', '#663d00', '#666600', '#003700',
-  '#002966', '#3d1466'];
-const BACK_COLORS = ['#ffff00', '#ffff66', '#ffffcc', '#facccc', '#ffebcc', '#cce8cc', '#cce0f5',
-  '#ebd6ff'];
-
-function _colorOptions(colors) {
-  return '<option selected></option>' + colors.map((c) => '<option value="' + c + '"></option>').join('');
-}
-
-// Единый набор панели, как в «Совещании» (решение Оркестратора 02.10), по порядку:
-//   заголовок (1, 2, 3, обычный) · жирный, курсив, подчёркнутый, зачёркнутый ·
-//   цвет текста, заливка · нумерованный, маркированный список, отступ меньше/больше ·
-//   выравнивание · ссылка, цитата · снять оформление.
-// Без шрифта и блока кода. Своё у «Тезисов» — только кнопка «Нужна цифра» в конце.
-const TOOLBAR_HTML =
-  '<span class="ql-formats"><select class="ql-header" title="Заголовок"><option value="1"></option>' +
-  '<option value="2"></option><option value="3"></option><option selected></option></select></span>' +
-  '<span class="ql-formats"><button class="ql-bold" title="Жирный — акцент при произнесении"></button>' +
-  '<button class="ql-italic" title="Курсив"></button><button class="ql-underline" title="Подчёркнутый"></button>' +
-  '<button class="ql-strike" title="Зачёркнутый"></button></span>' +
-  '<span class="ql-formats"><select class="ql-color" title="Цвет текста">' + _colorOptions(TEXT_COLORS) +
-  '</select><select class="ql-background" title="Заливка">' + _colorOptions(BACK_COLORS) + '</select></span>' +
-  '<span class="ql-formats"><button class="ql-list" value="ordered" title="Нумерованный список"></button>' +
-  '<button class="ql-list" value="bullet" title="Маркированный список"></button>' +
-  '<button class="ql-indent" value="-1" title="Меньше отступ"></button>' +
-  '<button class="ql-indent" value="+1" title="Больше отступ"></button></span>' +
-  '<span class="ql-formats"><select class="ql-align" title="Выравнивание"></select></span>' +
-  '<span class="ql-formats"><button class="ql-link" title="Ссылка"></button>' +
-  '<button class="ql-blockquote" title="Цитата"></button></span>' +
-  '<span class="ql-formats"><button class="ql-clean" title="Снять оформление"></button></span>' +
-  '<span class="ql-formats"><button class="ql-marker marker-btn" type="button" ' +
-  'title="Поставить место под недостающую цифру или сведение — [нужна цифра: …]. ' +
-  'В документе оно выделено, чтобы не ушло незамеченным">Нужна цифра</button></span>';
-
-function _mountEditor() {
-  const slot = $('#editor-slot');
-  if (!slot || !_thesis) return;
-  if (typeof Quill === 'undefined') {
-    // редактор не загрузился — простое поле, текст без оформления
-    slot.innerHTML = '<textarea id="editor-plain" class="edit-ta" rows="12">' +
-      esc(richLines(_thesis.html || '').join('\n')) + '</textarea>';
-    return;
-  }
-  const wrap = document.createElement('div');
-  wrap.className = 'editor-wrap';
-  wrap.innerHTML = '<div id="editor-toolbar">' + TOOLBAR_HTML + '</div><div id="editor"></div>';
-  slot.replaceWith(wrap);
-  _editorWrap = wrap;
-  _quill = new Quill(wrap.querySelector('#editor'), {
-    theme: 'snow',
-    placeholder: 'Пишите по одному предложению в пункте…',
-    modules: { toolbar: { container: wrap.querySelector('#editor-toolbar'),
-      handlers: { marker: insertMarker } } }
-  });
-  _setQuillHtml(_quill, _sanitizeHtml(_thesis.html || ''));
-  _quill.history.clear();
-  _editorBase = { rev: _currentRev, html: _thesis.html || '' };
-  _editorDirty = false;
-  _quill.on('text-change', function (delta, old, source) {
-    if (source !== 'user') return;
-    _editorDirty = true;
-    _setSaveState('не сохранено', '');
-    _updateCounters();
-    clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(saveText, SAVE_DELAY);
-  });
-  // Ушли из редактора — сохраняем сразу, а подсветку обновим, когда всё уляжется. Раньше
-  // уходом считался любой уход курсора из текста (selection-change с null), в том числе
-  // на палитру цвета панели: редактор пересобирался, выделение и палитра пропадали
-  // (жалоба 02.10). Теперь уход — только когда фокус вышел за пределы всей обёртки.
-  wrap.addEventListener('focusout', function (e) { _onEditorFocusOut(wrap, e); });
-  // Нажатие на панель не забирает фокус у текста: выделение остаётся видно, пока
-  // выбирают цвет или заголовок (на Safari иначе фокус уходил бы на страницу).
-  wrap.querySelector('#editor-toolbar').addEventListener('mousedown', function (e) {
-    if (!(e.target && e.target.closest && e.target.closest('input, textarea'))) e.preventDefault();
-  });
-  _updateCounters();
-}
-
-// текст по пунктам из HTML — для счётчика и запасного поля
-function richLines(html) {
-  const doc = new DOMParser().parseFromString('<div>' + String(html || '') + '</div>', 'text/html');
-  const out = [];
-  doc.body.querySelectorAll('p, li, h1, h2, h3, h4, blockquote, pre').forEach(function (n) {
-    const text = (n.textContent || '').replace(/\s+/g, ' ').trim();
-    if (text) out.push(text);
-  });
-  return out;
-}
-
-function _updateCounters() {
-  const count = $('#editor-count');
-  const hint = $('#editor-hint');
-  if (!_thesis) return;
-  const lines = _quill ? richLines(_quill.root.innerHTML) : richLines(_thesis.html || '');
-  const words = lines.reduce((n, l) => n + l.split(/\s+/).length, 0);
-  const minutes = Math.round(words / (_thesis.words_per_minute || 120) * 10) / 10;
-  if (count) {
-    count.textContent = plural(lines.length, 'пункт', 'пункта', 'пунктов') + ' · ' +
-      String(minutes).replace('.', ',') + ' из ' + _thesis.minutes + ' мин';
-    count.className = 'muted' + (minutes > _thesis.minutes * 1.15 ? ' over' : '');
-    count.title = 'Вслух ' + (_thesis.words_per_minute || 120) + ' слов в минуту';
-  }
-  if (hint) hint.hidden = lines.length > 0;
-}
-
-function _setSaveState(text, cls) {
-  const box = $('#save-state');
-  if (!box) return;
-  box.textContent = text;
-  box.className = 'save-state' + (cls ? ' ' + cls : '');
-}
-
-/* Сохранить текст редактора. Одно сохранение за раз: следующее уходит от версии,
-   которую вернуло предыдущее, — свои правки друг с другом не спорят. */
-async function saveText() {
-  clearTimeout(_saveTimer);
-  if (_saving) {
-    await _saving.catch(function () {});
-    if (!_editorDirty) return undefined;
-  }
-  if (!_editorDirty || !_thesis || !_quill) return undefined;
-  const html = _editorHtml();
-  const tid = currentId;
-  _editorDirty = false;
-  _setSaveState('сохраняю…', '');
-  _saving = send(tPath('/text'), 'PUT', { html: html, rev: _editorBase.rev }, {
-    keep409: true,
-    before: function (data) { _editorBase = { rev: data.rev, html: (data.thesis && data.thesis.html) || html }; }
-  });
+/* Сохранить открытый блок, если в нём несохранённое (перед «Искрой», выгрузкой, переходом).
+   false — не сохранилось: причину человек уже видит (подсказка или плашка). Идущее
+   сохранение компонент отдаёт тем же обещанием. */
+async function _saveOpen() {
+  if (!_view || !_view.isDirty()) return true;
   try {
-    await _saving;
-    if (currentId === tid) _setSaveState(_editorDirty ? 'не сохранено' : 'сохранено', 'ok');
+    await _view.save();
   } catch (e) {
-    if (currentId !== tid) return undefined;
-    if (e.detail && e.detail.current) {
-      // пока писали, тезисы изменили: свой текст не теряем, решает человек
-      _textConflict = html;
-      _editorDirty = false;
-      _saving = null;
-      _dropEditor();
-      applyThesis(e.detail.current);
-    } else if (e.message === 'stale') {
-      _editorDirty = true;             // сохраним заново: с версией, от которой шла правка
-      _setSaveState('не сохранено', '');
-    } else {
-      _editorDirty = true;
-      _setSaveState('не сохранено: ' + e.message, 'bad');
-      if (e.message !== 'unauth') toast('Текст не сохранился: ' + e.message, 'err');
-    }
-  } finally {
-    _saving = null;
+    return false;
   }
-  if (_editorDirty) _saveTimer = setTimeout(saveText, SAVE_DELAY);
-  return undefined;
-}
-
-/* После сохранения и ухода из редактора — пересобрать страницу с пометками. */
-function _refreshEditor() {
-  // в тексте или на панели (палитра, окошко ссылки) — не пересобираем (жалоба 02.10)
-  if (!_quill || !_thesis || _editorDirty || _saving || _focusInEditor()) return;
-  const scroll = window.scrollY;
-  _dropEditor();
-  render();
-  window.scrollTo(0, scroll);
-}
-
-function restoreMine() {
-  if (!_textConflict) return;
-  const html = _textConflict;
-  _textConflict = null;
-  _dropEditor();
-  render();
-  if (!_quill) return;
-  _setQuillHtml(_quill, _sanitizeHtml(html));
-  // мой текст ложится поверх той версии, которую человек только что видел
-  _editorBase = { rev: _currentRev, html: _thesis.html || '' };
-  _editorDirty = true;
-  saveText();
-}
-
-function dropMine() {
-  _textConflict = null;
-  _dropEditor();
-  render();
+  await _writeChain;
+  return !_view.isDirty();
 }
 
 /* «zadанию» → «заданию»: заменить слово везде — в тексте, а если оно в теме или в месте
-   выступления, то и там. */
+   выступления, то и там. В тексте — по текстовым кускам между тегами (разметка не
+   трогается), затем PUT …/text; открытый редактор с несохранённым — ещё и в нём. */
+function _replaceInText(html, word, by) {
+  return String(html || '').split(/(<[^>]*>)/).map(function (part) {
+    return part.charAt(0) === '<' ? part : part.split(word).join(by);
+  }).join('');
+}
+
 async function replaceWord(word, by) {
   const t = _thesis;
   if (t && ((t.topic || '').indexOf(word) >= 0 || (t.event || '').indexOf(word) >= 0)) {
@@ -1799,22 +1979,35 @@ async function replaceWord(word, by) {
       event: (t.event || '').split(word).join(by), minutes: t.minutes, ask: t.ask || '' });
     await loadTheses();
   }
-  if (!_quill) return;
-  let text = _quill.getText();
+  if (!_thesis) return;
+  if (_replaceInText(_thesis.html || '', word, by) !== (_thesis.html || '')) {
+    // своя замена в правленом разделе — не чужая правка: начало правки меняем вместе с ней
+    const b = _editBase && !_editBase.phantom && !_editBase.isNew ? _editBase : null;
+    if (b) {
+      b.head = _replaceInText(b.head, word, by);
+      b.body = _replaceInText(b.body, word, by);
+      b.title = _plainOf(b.head);
+    }
+    await _putText(() => _replaceInText(_thesis.html || '', word, by));
+  }
+  // несохранённый набор в открытом блоке перерисовка не трогает — меняем и в нём
+  const q = _view && _view.isDirty() ? _view.quill() : null;
+  if (!q) return;
+  let text = q.getText();
   let at = text.indexOf(word);
   while (at >= 0) {
-    _quill.deleteText(at, word.length, 'user');
-    _quill.insertText(at, by, 'user');
-    text = _quill.getText();
+    q.deleteText(at, word.length, 'user');
+    q.insertText(at, by, 'user');
+    text = q.getText();
     at = text.indexOf(word, at + by.length);
   }
-  _editorDirty = true;
-  saveText().then(_refreshEditor, function () {});
 }
 
-/* Место под недостающую цифру: метка «[нужна цифра: …]» — красным, чтобы бросалась в глаза. */
-function insertMarker() {
-  _savedRange = _quill ? _quill.getSelection(true) : null;
+/* Место под недостающую цифру: метка «[нужна цифра: …]» — красным, чтобы бросалась в глаза.
+   Кнопка «Нужна цифра» на панели блока отдаёт свой редактор (toolbarExtra компонента). */
+function insertMarker(quill) {
+  let q = quill || (_view && _view.quill());
+  _savedRange = q ? q.getSelection(true) : null;
   const ov = modal('<h3>Нужна цифра</h3>' +
     '<p>Числа в выступлении обязательны. Если нужной цифры или сведения в материалах нет, ' +
     'ставим не выдуманное значение, а место под него — и подписываем, что именно сюда нужно. ' +
@@ -1831,27 +2024,28 @@ function insertMarker() {
     const text = ov.querySelector('#g-text').value.trim();
     const piece = '[' + marker + (text ? ': ' + text : '') + ']';
     ov.remove();
-    if (!_quill) return;
-    let at = _savedRange ? _savedRange.index + _savedRange.length : _quill.getLength() - 1;
+    // пока окно было открыто, блоки могли перерисоваться — тогда редактор уже новый
+    if (!(q && q.root && q.root.isConnected !== false)) q = _view && _view.quill();
+    if (!q) return;
+    let at = _savedRange ? _savedRange.index + _savedRange.length : q.getLength() - 1;
     // метка — отдельным словом: перед ней пробел, если курсор стоит вплотную к тексту
-    const before = at > 0 ? _quill.getText(at - 1, 1) : '\n';
-    if (!/\s/.test(before)) { _quill.insertText(at, ' ', { color: false, bold: false }, 'user'); at += 1; }
-    _quill.insertText(at, piece, { color: '#c00000', bold: true }, 'user');
-    _quill.insertText(at + piece.length, ' ', { color: false, bold: false }, 'user');
-    _quill.setSelection(at + piece.length + 1, 0, 'user');
+    const before = at > 0 ? q.getText(at - 1, 1) : '\n';
+    if (!/\s/.test(before)) { q.insertText(at, ' ', { color: false, bold: false }, 'user'); at += 1; }
+    q.insertText(at, piece, { color: '#c00000', bold: true }, 'user');
+    q.insertText(at + piece.length, ' ', { color: false, bold: false }, 'user');
+    q.setSelection(at + piece.length + 1, 0, 'user');
   });
 }
 
-// Уходят со страницы с несохранённым — браузер переспросит. Само сохранение здесь не
-// запускаем: оно сбросило бы признак, и `pagehide` уже не отправил бы текст.
-window.addEventListener('beforeunload', function (e) {
-  if (!_editorDirty && !_saving && !_pendingSends.size) return;
+// Уходят со страницы с несохранённым — браузер переспросит: правка в открытом блоке, мой текст,
+// которому негде лечь (плашка), или правка в очереди. Само сохранение здесь не запускаем:
+// `pagehide` ниже отправит набранное сам.
+function _onBeforeUnload(e) {
+  if (!(_view && _view.isDirty()) && !_textConflict && !_pendingSends.size) return;
   e.preventDefault();
   e.returnValue = '';
-});
-document.addEventListener('visibilitychange', function () {
-  if (document.hidden && _editorDirty) saveText();
-});
+}
+window.addEventListener('beforeunload', _onBeforeUnload);
 
 const KEEPALIVE_MAX = 60000;    // браузер пускает keepalive-запросы до 64 КБ на всех
 
@@ -1866,6 +2060,27 @@ function _sendOnHide(path, method, payload) {
   } catch (e) { /* браузер не принял — страница уже закрывается */ }
 }
 
+/* Набранное в открытом блоке при закрытии страницы: весь HTML с моим разделом — с версией,
+   от которой шла правка (`_editBase.rev`, ревьюер RC-2026-09-21-17, П4; ревью RC-2026-10-13-3,
+   К-2). Изменили что-то после неё — сервер ответит 409 и чужое не затрётся. Мой текст,
+   которому негде лечь («Ваш текст»), при закрытии не шлём: поверх чужого он не пишется. */
+function _hideText() {
+  if (!_view || !_view.isDirty() || !_thesis || !_editBase || _editBase.phantom) return null;
+  const key = _view.editing();
+  if (_editBase.key !== key) return null;
+  let html;
+  if (_editBase.isNew) {
+    const title = String((_view.fields() || {}).title || '').replace(/\s+/g, ' ').trim() || 'Новый раздел';
+    html = (_thesis.html || '') + _headHtml(title) + _view.html();
+  } else {
+    const list = keyedSections(_thesis.html || '');
+    const sec = list.filter((s) => s.id === key)[0];
+    if (!_sameSection(sec, _editBase)) return null;
+    html = withSection(list, key, _view.html(), _view.fields());
+  }
+  return html === null ? null : { html: html, rev: _editBase.rev };
+}
+
 window.addEventListener('pagehide', function () {
   // правки вне редактора (тема, минуты), ещё ждавшие очереди: достаточно последней по
   // адресу и только со своей эпохой — если экран устарел, их не шлём (К1 RC-16)
@@ -1877,13 +2092,11 @@ window.addEventListener('pagehide', function () {
   });
   Object.keys(last).forEach(function (k) {
     const w = last[k];
-    if (/\/text$/.test(w.path)) return;            // текст редактора уходит ниже
+    if (/\/text$/.test(w.path)) return;            // текст уходит ниже — собранный с открытым блоком
     _sendOnHide(w.path, w.method, Object.assign({ rev: _currentRev }, w.body));
   });
-  if (!_editorDirty || !_thesis) return;
-  const html = _editorHtml();
-  if (!html && !_quill) return;
-  _sendOnHide(tPath('/text'), 'PUT', { html: html, rev: _editorBase.rev });
+  const text = _hideText();
+  if (text) _sendOnHide(tPath('/text'), 'PUT', text);
 });
 
 // ── выгрузка и передача ──────────────────────────────────────────────────
@@ -1892,7 +2105,7 @@ window.addEventListener('pagehide', function () {
    показать. Сервер их всё равно не пропустит, но лучше сказать здесь, чем открывать
    страницу с ошибкой вместо файла. */
 async function _readyToShip() {
-  await saveText();
+  if (!await _saveOpen()) return false;     // не сохранилось — причину человек уже видит
   const mixed = (_thesis && _thesis.mixed_words) || [];
   if (!mixed.length) return true;
   toast('Сначала поправьте слова наполовину латиницей: ' +

@@ -26,8 +26,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import (audit, config, db, docx_export, engine as engine_mod, jobs, media, orders as orders_mod,
-               orders_docx, portal, summarizer)
+from . import (audit, config, db, doc_html, docx_export, engine as engine_mod, jobs, media,
+               orders as orders_mod, orders_docx, portal, richtext_common, summarizer)
 
 app = FastAPI(title="Транскрибатор", docs_url=None, redoc_url=None)
 
@@ -162,7 +162,30 @@ def api_delete(record_id: int, request: Request, user: dict = Depends(user_dep))
 
 class TextIn(BaseModel):
     text: str = ""
+    # единый формат блоков (решение пользователя 13.10): правка с оформлением; задан — текст
+    # выводится из него, `text` не читается. Не задан — правка простым текстом, как раньше.
+    html: str | None = None
     version: int | None = None
+
+
+# Предел HTML правки (ревью RC-2026-10-13-2, Н-3): транскрипция с оформлением — обычно десятки КБ,
+# а разбор мегабайтов разметки занимает поток запроса на секунды
+MAX_DOC_HTML = 1_000_000
+
+
+def _styled(body: TextIn, sep: str) -> tuple[str, str]:
+    """(текст, очищенный HTML) правки. HTML чистится на сервере всегда — что бы ни прислал
+    браузер (`richtext_common.clean`, белый список общей панели); текст — его абзацы через `sep`."""
+    if body.html is None:
+        return body.text, ""
+    if len(body.html) > MAX_DOC_HTML:
+        raise HTTPException(status_code=413, detail=(
+            f"Текст с оформлением слишком большой: {len(body.html):,} знаков разметки, предел — "
+            f"{MAX_DOC_HTML:,}. Снимите часть оформления (кнопка «Снять оформление») или разделите "
+            "документ.").replace(",", " "))
+    html = richtext_common.clean(body.html)
+    text = sep.join(richtext_common.paragraphs(html))
+    return text, html if text.strip() else ""
 
 
 class OrdersIn(BaseModel):
@@ -192,15 +215,18 @@ def api_save_text(record_id: int, body: TextIn, request: Request,
     if body.version is None:
         raise HTTPException(status_code=400, detail="Не указана версия черновика")
     before = record_or_404(record_id)
+    # абзацы — через пустую строку: по ним docx_export ищет таймкод и говорящего
+    text, html = _styled(body, "\n\n")
+    html = doc_html.mark_stamps(html) if html else ""      # таймкод — <span class="tc">, Quill его снимает
     try:
-        record = db.save_draft_text(record_id, body.text, user, body.version)
+        record = db.save_draft_text(record_id, text, user, body.version, html=html)
     except db.Conflict as conflict:
         raise _conflict(conflict, "Транскрипцию") from None
     if not record:
         raise HTTPException(status_code=404, detail="Запись не найдена")
     audit.write(user, "исправлена транскрипция записи", before["title"],
-               f"версия {before['draft_version']} → {record['draft_version']}, знаков: {len(body.text)}",
-               portal.client_ip(request))
+               f"версия {before['draft_version']} → {record['draft_version']}, знаков: {len(text)}"
+               + (", с оформлением" if html else ""), portal.client_ip(request))
     return record
 
 
@@ -211,15 +237,16 @@ def api_save_summary(record_id: int, body: TextIn, request: Request,
     if body.version is None:
         raise HTTPException(status_code=400, detail="Не указана версия саммари")
     before = record_or_404(record_id)
+    text, html = _styled(body, "\n")
     try:
-        record = db.save_summary_text(record_id, body.text, user, body.version)
+        record = db.save_summary_text(record_id, text, user, body.version, html=html)
     except db.Conflict as conflict:
         raise _conflict(conflict, "Саммари") from None
     if not record:
         raise HTTPException(status_code=404, detail="Запись не найдена")
     audit.write(user, "исправлено саммари записи", before["title"],
                f"версия {before['summary_version']} → {record['summary_version']},"
-               f" знаков: {len(body.text)}", portal.client_ip(request))
+               f" знаков: {len(text)}" + (", с оформлением" if html else ""), portal.client_ip(request))
     return record
 
 
@@ -676,32 +703,19 @@ def _orders_text(orders: list[dict[str, str]]) -> str:
     return "\n".join(lines).strip()
 
 
-def _transcript_html(text: str) -> str:
-    out = []
-    for para in re.split(r"\n\s*\n", text or ""):
-        para = " ".join(para.split())
-        if not para:
-            continue
-        m = docx_export._PARA.match(para)
-        stamp, body = (f"[{m.group(1)}] ", m.group(2)) if m else ("", para)
-        sm = docx_export._SPEAKER.match(body)
-        who = ""
-        if sm:
-            who, body = f"<b>{escape(sm.group(1))}:</b> ", sm.group(2)
-        out.append(f"<p>{escape(stamp)}{who}{escape(body)}</p>")
-    return "".join(out)
-
-
-def _paragraphs_html(text: str) -> str:
-    return "".join(f"<p>{escape(' '.join(p.split()))}</p>"
-                   for p in re.split(r"\n\s*\n|\n", text or "") if p.strip())
-
-
-def _orders_html(orders: list[dict[str, str]]) -> str:
+def _orders_html(orders: list[dict[str, Any]]) -> str:
+    """Перечень для «Совещания»: пункт с оформлением человека — его HTML, иначе текст (как до 13.10)."""
     items = []
-    for order in orders_docx.clean_orders(orders):
+    for raw in orders or []:
+        cleaned = orders_docx.clean_orders([raw])
+        if not cleaned:
+            continue
+        order = cleaned[0]
         term = orders_docx.deadline_line(order["deadline"])
-        items.append(f"<li>{escape(order['text'])}" + (f"<br>{escape(term)}" if term else "") + "</li>")
+        if isinstance(raw, dict) and doc_html.order_styled(raw):
+            items.append(f"<li>{raw['html']}" + (f"<p>{escape(term)}</p>" if term else "") + "</li>")
+        else:
+            items.append(f"<li>{escape(order['text'])}" + (f"<br>{escape(term)}" if term else "") + "</li>")
     return f"<ol>{''.join(items)}</ol>" if items else ""
 
 
@@ -715,12 +729,17 @@ def results_payload(record: dict[str, Any]) -> list[dict[str, Any]]:
     draft = record.get("draft_text") or ""
     summary = orders_docx.dash(record.get("summary") or "")
     orders = record.get("orders") or []
+    # правка с оформлением (решение пользователя 13.10) уходит своим HTML, иначе — как до неё
+    draft_html = record["draft_html"] if record.get("draft_styled") else doc_html.transcript_html(draft, mark=False)
+    # тире в «Совещании» — как в Word и в тексте (ревью RC-2026-10-13-2, Н-5)
+    summary_html = (orders_docx.dash(record["summary_html"]) if record.get("summary_styled")
+                    else doc_html.paragraphs_html(summary))
     return [
         {"kind": "transcript", "title": f"Транскрипция совещания{tail}",
-         "html": _transcript_html(draft), "text": draft,
+         "html": draft_html, "text": draft,
          "docx_url": f"{base}/transcript.docx", "source": source},
         {"kind": "summary", "title": f"Саммари совещания{tail}",
-         "html": _paragraphs_html(summary), "text": summary,
+         "html": summary_html, "text": summary,
          "docx_url": f"{base}/summary.docx", "source": source},
         {"kind": "decisions", "title": f"Перечень поручений{tail}",
          "html": _orders_html(orders), "text": _orders_text(orders),

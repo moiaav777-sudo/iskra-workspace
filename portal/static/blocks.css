@@ -1,0 +1,109 @@
+/* Единый формат блоков документа (решение пользователя 13.10: «каждый раздел — отдельным блоком
+   для форматирования, как в модераторе»). Разметка и цвета один в один из сценария «Совещания»
+   (moderator/static/index.html, .sc-card / .sc-block): карточка раздела → блоки с меткой вида,
+   кнопками ✎ ✕ и текстом; нажатие на текст открывает редактор Quill с общей панелью.
+   Подключается вместе с /static/vendor/quill.snow.css и /static/blocks.js (отдаёт портал). */
+
+.sc-root{display:block;}
+.sc-card{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;background:var(--surface);}
+.sc-card-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;font-size:0.8462rem;font-weight:600;background:var(--surface-2);border-bottom:1px solid var(--border);color:var(--text);}
+.sc-card-title .sc-card-note{font-weight:400;color:var(--text-muted);}
+.sc-card-actions{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;}
+.sc-card-empty{padding:12px 14px;font-size:0.8718rem;color:var(--text-muted);}
+.sc-card-foot{display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:8px 12px;border-top:1px solid var(--border);background:var(--surface-2);font-size:0.8462rem;}
+.sc-block .txt .tc{color:var(--text-muted);font-variant-numeric:tabular-nums;}
+.sc-block{display:flex;flex-direction:column;gap:4px;padding:9px 12px 9px 14px;border-left:3px solid var(--kind-color,var(--border));border-bottom:1px solid var(--border);}
+.sc-block:last-child{border-bottom:none;}
+.sc-block .kind{display:inline-flex;align-items:center;gap:5px;font-size:0.7179rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;padding:2px 7px;border-radius:var(--radius-s);color:var(--kind-color,var(--accent));background:var(--kind-bg,var(--accent-bg));}
+.sc-block .kind::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--kind-color,var(--accent));}
+.sc-block.k-org{--kind-color:var(--text-muted);--kind-bg:var(--surface-2);}
+.sc-block.k-report{--kind-color:#0070C0;--kind-bg:rgba(0,112,192,.08);}
+.sc-block.k-discuss{--kind-color:#0E7490;--kind-bg:rgba(14,116,144,.1);}
+.sc-block.k-action{--kind-color:var(--warning);--kind-bg:var(--warning-bg);}
+.sc-block.k-problem{--kind-color:var(--danger);--kind-bg:var(--danger-bg);}
+.sc-block.k-decision{--kind-color:var(--success);--kind-bg:var(--success-bg);}
+.sc-block .sc-meta{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;}
+.sc-block .sc-time{font-variant-numeric:tabular-nums;font-weight:600;font-size:0.8462rem;color:var(--text-2);}
+.sc-block .sc-chip{font-size:0.7949rem;color:var(--text-muted);}
+.sc-block .sc-chip b{color:var(--text-2);font-weight:600;}
+.sc-block .txt{font-size:0.8974rem;color:var(--text-2);line-height:1.5;cursor:pointer;min-width:0;overflow-wrap:anywhere;}
+.sc-root.ro .sc-block .txt{cursor:default;}
+.sc-block .txt.editing{cursor:default;}
+.sc-block .txt .muted{color:var(--text-muted);}
+.sc-block .del{margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.8462rem;padding:2px 4px;border-radius:4px;opacity:0;transition:opacity .15s;}
+.sc-block .del + .del{margin-left:0;}
+.sc-block:hover .del,.sc-block .del:focus-visible,.sc-block.editing .del{opacity:1;}
+.sc-block .del:hover{color:var(--danger);}
+@media (hover:none){.sc-block .del{opacity:1;}}
+
+/* содержимое блока в режиме просмотра — то же, что рисует редактор */
+.sc-block .txt p{margin:0 0 .35em;}
+.sc-block .txt p:last-child{margin-bottom:0;}
+.sc-block .txt h1,.sc-block .txt h2,.sc-block .txt h3{margin:.4em 0 .25em;line-height:1.3;color:var(--text);}
+.sc-block .txt h1{font-size:1.15em;}
+.sc-block .txt h2{font-size:1.08em;}
+.sc-block .txt h3{font-size:1em;}
+.sc-block .txt ul,.sc-block .txt ol{padding-left:1.5em;margin:4px 0;}
+.sc-block .txt ul{list-style:disc;}
+.sc-block .txt ol{list-style:decimal;}
+.sc-block .txt li{margin:2px 0;}
+.sc-block .txt blockquote{margin:.3em 0;padding:2px 0 2px 12px;border-left:3px solid var(--border-strong);color:var(--text-muted);}
+.sc-block .txt pre{white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.95em;}
+.sc-block .txt a{color:var(--link);}
+.sc-block .txt .ql-align-center{text-align:center;}
+.sc-block .txt .ql-align-right{text-align:right;}
+.sc-block .txt .ql-align-justify{text-align:justify;}
+.sc-block .txt .ql-indent-1{padding-left:3em;}
+.sc-block .txt .ql-indent-2{padding-left:6em;}
+.sc-block .txt .ql-indent-3{padding-left:9em;}
+.sc-block .txt .ql-indent-4{padding-left:12em;}
+.sc-block .txt .ql-indent-5{padding-left:15em;}
+.sc-block .txt .ql-indent-6{padding-left:18em;}
+.sc-block .txt .ql-indent-7{padding-left:21em;}
+.sc-block .txt .ql-indent-8{padding-left:24em;}
+.sc-block .txt li.ql-indent-1{padding-left:0;margin-left:3em;}
+.sc-block .txt li.ql-indent-2{padding-left:0;margin-left:6em;}
+.sc-block .txt li.ql-indent-3{padding-left:0;margin-left:9em;}
+.sc-block .txt li.ql-indent-4{padding-left:0;margin-left:12em;}
+.sc-block .txt li.ql-indent-5{padding-left:0;margin-left:15em;}
+.sc-block .txt li.ql-indent-6{padding-left:0;margin-left:18em;}
+.sc-block .txt li.ql-indent-7{padding-left:0;margin-left:21em;}
+.sc-block .txt li.ql-indent-8{padding-left:0;margin-left:24em;}
+/* открытый блок: ✎ и ✕ спрятаны — повторное ✎ пересоздавало бы редактор, ✕ сносило бы набранное */
+.sc-block.editing .del{display:none;}
+.sc-libs-missing{padding:8px 12px;font-size:0.8462rem;color:var(--warning);}
+/* тёмная тема: цветной текст и заливки из редактора рисуются на светлой подложке, иначе не читаются */
+:root[data-theme="dark"] .sc-block .txt span[style*="color"]{background:#fff;padding:0 .15em;border-radius:3px;}
+:root[data-theme="dark"] .sc-block .txt span[style*="background-color"]{color:#1a1a1a;}
+@media (prefers-color-scheme: dark){   /* системная тёмная тема (так работает «Бриф») — то же, что data-theme="dark" */
+  :root:not([data-theme="light"]) .sc-block .txt span[style*="color"]{background:#fff;padding:0 .15em;border-radius:3px;}
+  :root:not([data-theme="light"]) .sc-block .txt span[style*="background-color"]{color:#1a1a1a;}
+}
+.sc-block .txt li > ul,.sc-block .txt li > ol{margin:2px 0 0;}
+.sc-editor .ql-editor a{color:#0a58ca;}
+
+/* редактор внутри блока — панель и поле Quill, как в «Совещании» */
+.sc-editor{margin-top:2px;}
+/* панель — всегда светлая, как и поле (значки Quill чёрные): в тёмной теме на var(--surface-2) они пропадали */
+.sc-editor .ql-toolbar.ql-snow{border-radius:6px 6px 0 0;border-color:var(--border-strong);background:#f3f4f6;font-family:inherit;}
+.sc-editor .ql-container.ql-snow{border-radius:0 0 6px 6px;border-color:var(--border-strong);background:#fff;font-family:inherit;font-size:0.8974rem;}
+.sc-editor .ql-editor{min-height:140px;line-height:1.5;color:#1a1a1a;background:#fff;cursor:text;}
+.sc-editor .ql-container.ql-snow .ql-editor.ql-blank::before{color:var(--text-muted);font-style:normal;}
+.sc-editor .ql-toolbar.ql-snow .ql-picker-label,.sc-editor .ql-toolbar.ql-snow .ql-picker-item{color:#1a1a1a;}
+.sc-editor .ql-snow .ql-stroke{stroke:#1a1a1a;}
+.sc-editor .ql-snow .ql-fill{fill:#1a1a1a;}
+.sc-editor .ql-toolbar .sc-tool-extra{width:auto !important;padding:0 .5rem !important;font-weight:600;font-size:.8rem;white-space:nowrap;color:#c00000 !important;}
+.sc-editor .ql-toolbar .sc-tool-extra:hover{background:var(--surface);border-radius:4px;}
+.sc-editor .sc-ta{width:100%;min-height:120px;font:inherit;font-size:0.8974rem;padding:8px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);color:var(--text);resize:vertical;}
+.sc-fields{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.sc-field{display:flex;flex-direction:column;gap:3px;flex:1 1 180px;font-size:0.7949rem;color:var(--text-muted);}
+.sc-field.narrow{flex:0 1 170px;}
+.sc-field input{font:inherit;font-size:0.8718rem;color:var(--text);padding:6px 8px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);min-width:0;}
+.sc-edit-actions{margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.sc-edit-actions .sc-hint{font-size:0.7949rem;color:var(--text-muted);margin-left:auto;}
+.sc-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--accent);border-radius:var(--radius-s);background:var(--accent);color:var(--accent-ink);font:inherit;font-size:0.8462rem;font-weight:600;cursor:pointer;transition:background .15s var(--ease),border-color .15s var(--ease);}
+.sc-btn:hover{background:var(--accent-hover);border-color:var(--accent-hover);}
+.sc-btn.ghost{background:var(--surface);color:var(--text-2);border-color:var(--border-strong);}
+.sc-btn.ghost:hover{background:var(--surface-2);color:var(--text);}
+.sc-btn.small{padding:3px 9px;font-size:0.7949rem;font-weight:500;}
+.sc-btn:disabled{opacity:.55;cursor:default;}

@@ -73,18 +73,17 @@ dialog::backdrop { background: rgba(10,25,45,.45); }
 .detail-block { margin-bottom: 16px; }
 .detail-block h4 { margin: 0 0 6px; font-size: var(--text-h3); }
 .hint { font-weight: 400; color: var(--muted); font-size: var(--text-small); }
-.summary-text { white-space: pre-wrap; }
-.detail-block textarea, .detail-block input, #attach select, #attach input { width: 100%; font: inherit; font-size: var(--text-small); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--card); color: var(--ink); }
-.detail-block textarea { resize: vertical; }
+.detail-block input, #attach select, #attach input { width: 100%; font: inherit; font-size: var(--text-small); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--card); color: var(--ink); }
 #attach select { margin: 8px 0; }
 .detail-block { border-top: 1px solid var(--line); padding-top: 12px; }
 .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
 .meta-grid label { display: flex; flex-direction: column; gap: 4px; font-size: var(--text-small); color: var(--muted); }
-.orders { display: grid; gap: 10px; }
-.order { display: grid; grid-template-columns: 2.2rem 1fr; gap: 6px 8px; align-items: start; }
-.order-num { font-weight: 600; padding-top: 8px; text-align: right; }
-.order-line { grid-column: 2; display: flex; gap: 8px; flex-wrap: wrap; }
-.order-line input { flex: 1 1 180px; width: auto; }
-.order-line .order-deadline { flex: 0 1 160px; }
+/* Три документа — блоки общего компонента (/static/blocks.css, решение пользователя 13.10);
+   здесь только отступы и вид ссылок «Скачать» в подвале карточки. */
+#doc-blocks { border-top: 1px solid var(--line); padding-top: 12px; margin-bottom: 16px; }
+#doc-blocks .sc-card { margin-bottom: 12px; }
+#doc-blocks .sc-card-foot a { font-weight: 600; color: var(--blue); }
+/* короткое сообщение карточки («сначала сохраните правку…»): внизу окна, не сдвигая разметку */
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: min(560px, 92vw); padding: 10px 16px; border-radius: 10px; background: var(--ink); color: var(--card); font-weight: 600; box-shadow: 0 4px 16px rgba(10,25,45,.25); z-index: 10; }
 .detail-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
 .detail-actions a { font-weight: 600; color: var(--blue); }

@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 
 import pytest
+from unittest.mock import ANY
 from docx import Document
 from fastapi.testclient import TestClient
 
@@ -111,7 +112,10 @@ def test_posle_razbora_tri_dokumenta(client):
     assert record["draft_text"].startswith("[00:00] Говорящий 1: Добрый день, коллеги.")
     assert "[01:30] Говорящий 1: Поручаю" in record["draft_text"]
     assert record["summary"].startswith("Обсудили")
-    assert record["orders"][0] == ORDER and len(record["orders"]) == 2
+    # html поручения для блока карточки выводится из текста (решение пользователя 13.10)
+    # и постоянный id (ревью RC-2026-10-13-2, К-1)
+    assert record["orders"][0] == {**ORDER, "html": f"<p>{ORDER['text']}</p>", "id": ANY} and len(record["orders"]) == 2
+    assert len({o["id"] for o in record["orders"]}) == 2
     # расход: расшифровка (один прогон, 15) + саммари 120 + поручения 50
     assert record["tokens"] == 15 + 120 + 50
     # файл записи удалён после разбора — приватность
@@ -251,7 +255,9 @@ def test_pravka_porucheniy_s_versiey(client):
     body = ok.json()
     assert body["orders_version"] == version + 1
     assert body["orders"] == [{"text": "Минфину России (А.Г. Силуанову) проработать финансирование",
-                               "assignee": "А.Г. Силуанов", "deadline": "01.09.2026"}]
+                               "assignee": "А.Г. Силуанов", "deadline": "01.09.2026",
+                               "html": "<p>Минфину России (А.Г. Силуанову) проработать финансирование</p>",
+                               "id": ANY}]
     late = client.put(f"/api/records/{rid}/orders", headers=EMP, json={"orders": [], "version": version})
     assert late.status_code == 409
     assert client.get(f"/api/records/{rid}", headers=EMP).json()["orders"] == body["orders"]
@@ -284,7 +290,8 @@ def test_pravka_cheloveka_vo_vremya_iskry_ne_zatiraetsya(client, monkeypatch):
     job = finish(client, client.post(f"/api/records/{rid}/rebuild", headers=EMP))
     assert job["status"] == "done"
     after = client.get(f"/api/records/{rid}", headers=EMP).json()
-    assert after["orders"] == [{"text": "Правка человека", "assignee": "", "deadline": ""}]
+    assert after["orders"] == [{"text": "Правка человека", "assignee": "", "deadline": "",
+                                "html": "<p>Правка человека</p>", "id": ANY}]
     assert "не записан" in after["state_note"]
 
 
@@ -376,7 +383,7 @@ def test_otmetka_soveshchaniya_v_kartochke(client):
 def test_stranitsa_otdaet_adresa_soseda_tolko_za_portalom(client, monkeypatch):
     html = client.get("/", headers=EMP).text
     assert "/moderator/api/meetings/{id}/results" in html.replace("&quot;", '"')
-    assert 'src="static/meeting.js"' in html and "Разобрать с Искрой" in html
+    assert 'src="static/meeting.js' in html and "Разобрать с Искрой" in html
     assert 'class="dropzone"' in html and "аудио/видео до 500 МБ" in html
     monkeypatch.setattr(config, "DEV", True)
     dev = client.get("/").text

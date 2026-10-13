@@ -1,12 +1,18 @@
-// Редактор тезисов и окно «Написать с «Искрой»» (жалобы пользователя 02.10). Песочница node,
-// как фронтенд-тесты «Модератора»: настоящий static/app.js, заглушки браузера и Quill.
+// Текст тезисов блоками по разделам и окно «Написать с «Искрой»». Песочница node, как
+// фронтенд-тесты «Модератора»: настоящий static/app.js, заглушки браузера. Общего компонента
+// (/static/blocks.js портала) здесь нет — его место занимает подставной, повторяющий контракт
+// (update → тот же блок открыт заново или onEditLost, save → onSave → close); сам компонент
+// в настоящем браузере проверяет js_blocks_ui_check.js. Эта проверка идёт и на снимке одной
+// папки у rc.sh, где портала рядом нет.
 //
-// 1. Цвет текста: уход фокуса из текста на панель (палитра цвета) — не уход из редактора:
-//    ни пересборки, ни потери выделения. Уход за пределы редактора — сохранение и пересборка.
-// 2. Очистка разметки пропускает всё, что ставит панель (цвет rgb и #hex, выравнивание,
-//    отступ, цитата, безопасная ссылка), и ничего лишнего.
-// 3. Панель — ровно единый набор, как в «Совещании», плюс «Нужна цифра»; палитры — только
-//    те цвета, что сервер сохраняет.
+// 1. Разделы (решение пользователя 13.10, «каждый раздел — отдельным блоком»): разбиение HTML
+//    по заголовкам h1–h3, сборка без потерь, устойчивые ключи разделов (ревью RC-2026-10-13-3,
+//    К-1), цвет по названию, карточка со счётчиком без заголовков.
+// 2. Сохранение блока и чужие правки: 409 при правке соседа — сохраняется само; мой раздел
+//    изменили или удалили — «Ваш текст» и плашка, поверх чужого не пишется (К-1, К-3), открыт без
+//    правки и перечитан — сохраняется с первого раза (Н-1), «Добавить раздел» и «Отмена» (Н-2),
+//    удаление, предупреждение при уходе (Н-8), закрытие страницы с версией начала правки (К-2).
+// 3. Замена слова наполовину латиницей — по тексту, разметка цела; и в открытом редакторе.
 // 4. Поле «приложить материалы» — общая зона .dropzone, как во всех разделах.
 // 5. «Наговорить»: распознавание стартует только по кнопке и гаснет, если окно закрыли.
 'use strict';
@@ -19,7 +25,6 @@ if (!appJsPath) { console.error('usage: node js_editor_check.js <path to app.js>
 const code = fs.readFileSync(appJsPath, 'utf8');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// ── маленькое дерево элементов: contains() по цепочке родителей ──────────
 function el(name, parent) {
   const node = {
     name, parent: parent || null, listeners: {}, style: {}, dataset: {}, innerHTML: '',
@@ -30,50 +35,28 @@ function el(name, parent) {
     fire(type, e) { (this.listeners[type] || []).forEach((fn) => fn(e)); },
     contains(other) { for (let n = other; n; n = n.parent) if (n === node) return true; return false; },
     closest() { return null; },
+    querySelector() { return null; },
+    replaceWith() {},
     focus() { sandbox.document.activeElement = node; },
   };
   return node;
 }
 
 const body = el('body');
-const outside = el('кнопка вне редактора', body);
-let wrap = null;
-let toolbar = null;
-let editorEl = null;
-let pickerOpen = false;
-const slot = el('editor-slot', body);
-slot.replaceWith = function (w) { w.parent = body; };
-const quills = [];
-
-class FakeQuill {
-  constructor(container, opts) {
-    this.opts = opts;
-    this.root = el('ql-editor', container);
-    this.handlers = {};
-    this.history = { clear() {} };
-    this.clipboard = { dangerouslyPasteHTML() {} };
-    quills.push(this);
-  }
-  on(ev, fn) { (this.handlers[ev] = this.handlers[ev] || []).push(fn); }
-  emit(ev, ...args) { (this.handlers[ev] || []).forEach((fn) => fn(...args)); }
-  hasFocus() { return sandbox.document.activeElement === this.root; }
-  getSelection() { return null; }
-  setSelection() {}
-}
-
 let observer = null;
 const byId = {};            // элементы окна, которые страница ищет по id
 const recs = [];
+const toasts = [];
+const conflictBox = el('conflict-box');
+const winHandlers = {};
 const sandbox = {
   console, setTimeout, clearTimeout, setInterval: () => 0, clearInterval: () => {}, URL,
   localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
   location: { hash: '', pathname: '/theses/', search: '', href: '' },
   history: { replaceState() {} },
   fetch: () => new Promise(() => {}),          // сеть не нужна: запуск страницы просто ждёт
-  FormData: class { append() {} }, Blob: class {}, alert() {},
+  FormData: class { append() {} }, Blob: class { constructor(p) { this.size = String(p[0]).length; } }, alert() {},
   scrollY: 0, scrollTo() {},
-  Quill: FakeQuill,
-  DOMParser: class { parseFromString() { return { body: { textContent: '', querySelectorAll: () => [] } }; } },
   MutationObserver: class {
     constructor(fn) { this.fn = fn; this.on = false; observer = this; }
     observe() { this.on = true; }
@@ -81,161 +64,425 @@ const sandbox = {
   },
   document: {
     activeElement: body, body,
-    querySelector: (sel) => (sel === '#editor-slot' ? slot : null),
+    // страница рисует блоки в #blocks-slot, плашку — в #conflict-box
+    querySelector: (sel) => (sel === '#blocks-slot' ? el('slot') : sel === '#conflict-box' ? conflictBox : null),
     querySelectorAll: () => [], getElementById: (id) => byId[id] || null,
-    createElement: () => {
-      const w = el('editor-wrap', null);
-      wrap = w;
-      toolbar = el('editor-toolbar', w);
-      editorEl = el('editor', w);
-      w.querySelector = (sel) => {
-        if (sel === '#editor-toolbar') return toolbar;
-        if (sel === '#editor') return editorEl;
-        if (/ql-expanded/.test(sel)) return pickerOpen ? {} : null;
-        return null;
-      };
-      return w;
-    },
+    createElement: () => el('div'),
     documentElement: { setAttribute() {}, getAttribute: () => null },
     addEventListener() {},
   },
 };
 sandbox.window = sandbox;
-sandbox.addEventListener = () => {};
+sandbox.addEventListener = (type, fn) => { (winHandlers[type] = winHandlers[type] || []).push(fn); };
+
+// ── подставной компонент: контракт /static/blocks.js — update переносит открытый редактор живым
+// (текст, base), блока нет — onEditLost; close → onEditClose всегда; save → onSave → close ──
+function fakeView(opts) {
+  const v = {
+    opts, cards: opts.cards || [], _editing: null, _html: '', _fields: {}, _dirty: false, opened: [], updates: 0,
+    editing: () => v._editing, isDirty: () => !!v._editing && v._dirty, html: () => v._html,
+    fields: () => Object.assign({}, v._fields), quill: () => v._quill || null,
+    find(id) { return ((v.cards[0] || {}).blocks || []).filter((b) => b.id === String(id))[0]; },
+    ids() { return ((v.cards[0] || {}).blocks || []).map((b) => b.id); },
+    info() { return { id: v._editing, html: v._html, fields: Object.assign({}, v._fields), dirty: v._dirty }; },
+    open(id, preset) {
+      const b = v.find(id);
+      if (!b) return false;
+      if (v._editing === b.id) { if (preset != null) { v._html = preset; v._dirty = true; } return true; }
+      if (v._editing && v._dirty) return false;
+      if (v._editing) v.close();
+      v._editing = b.id; v._html = preset != null ? preset : (b.html || ''); v._dirty = preset != null;
+      v._fields = {}; (b.fields || []).forEach((f) => { v._fields[f.name] = f.value; });
+      v.opened.push([b.id, preset == null ? null : preset]);
+      if (opts.onEditOpen) opts.onEditOpen(b);
+      return true;
+    },
+    close() {
+      if (!v._editing) return;
+      const b = v.find(v._editing);
+      const info = v.info();
+      v._editing = null; v._dirty = false;
+      if (opts.onEditClose && b) opts.onEditClose(b, info);
+    },
+    update(cards) {
+      const keep = v._editing ? v.info() : null;
+      v.cards = cards || []; v.updates += 1;
+      if (!keep || v.find(keep.id)) return;            // открытый блок на месте — редактор живой, как был
+      v._editing = null; v._dirty = false;
+      if (opts.onEditLost) opts.onEditLost(keep);      // блока нет — onEditClose компонент не зовёт
+    },
+    type(html, fields) { v._html = html; if (fields) Object.assign(v._fields, fields); v._dirty = true; },
+    async save() {
+      const b = v.find(v._editing);
+      try {
+        await opts.onSave({ card: v.cards[0], block: b, html: v._html, fields: Object.assign({}, v._fields) });
+      } catch (e) { if (v._editing) v._dirty = true; throw e; }
+      if (v._editing === b.id) v.close();
+      return true;
+    },
+    setReadOnly() {}, destroy() {},
+  };
+  return v;
+}
+sandbox.WorkspaceBlocks = { mount: (root, opts) => fakeView(opts) };
+
 vm.createContext(sandbox);
 vm.runInContext(code, sandbox, { filename: 'app.js' });
+const run = (src) => vm.runInContext(src, sandbox);
 
-vm.runInContext("render = function () { globalThis.__renders = (globalThis.__renders || 0) + 1; };", sandbox);
-const rendered = () => vm.runInContext('globalThis.__renders || 0', sandbox);
-vm.runInContext("_thesis = { id: 't1', html: '<p>Текст</p>', minutes: 7, sources: [] }; currentId = 't1';", sandbox);
+// страница целиком не рисуется: render — только блоки (настоящие _mountBlocks / thesisCard)
+run("render = function () { if (_thesis) _mountBlocks(_thesis, true); }; renderList = function () {};" +
+  "loadTheses = async function () {};");
+sandbox.toast = (msg, type) => { toasts.push([msg, type || 'ok']); };
+run('toast = globalThis.toast;');
+let confirmAnswer = true;
+let asked = null;
+sandbox.__confirm = async (msg) => { asked = msg; return confirmAnswer; };
+run('confirmDialog = globalThis.__confirm;');
 
-// уход из текста: так, как это делает браузер с Quill, — Quill сообщает «курсора нет»,
-// браузер — focusout с тем, куда ушёл фокус
-function leaveTextTo(target, related) {
-  const q = quills[quills.length - 1];
-  sandbox.document.activeElement = target;
-  q.emit('selection-change', null, { index: 0, length: 4 }, 'user');
-  wrap.fire('focusout', { target: q.root, relatedTarget: related === undefined ? target : related });
+// сервер: PUT …/text принимает только текущую версию, иначе 409 с текущими тезисами
+const server = { rev: 4, html: '', sent: [] };
+function thesisOf(html) {
+  return { id: 't1', html, minutes: 7, words_per_minute: 120, sources: [], bullets: [], gaps: [], refs: [],
+    has_text: !!html, topic: 'Тема', event: '' };
 }
+function reply(status, data) {
+  return Promise.resolve({ status, ok: status < 400, redirected: false, url: '', json: async () => data });
+}
+function serverFetch(url, opts) {
+  const method = (opts && opts.method) || 'GET';
+  if (method === 'GET') return new Promise(() => {});
+  const got = JSON.parse(opts.body || '{}');
+  server.sent.push({ url: String(url), method, body: got, keepalive: !!opts.keepalive });
+  if (got.rev !== server.rev) {
+    return reply(409, { detail: { message: 'Тезисы изменились', current: { thesis: thesisOf(server.html), rev: server.rev } } });
+  }
+  if (got.html !== undefined) server.html = got.html.replace(/<p><\/p>/g, '');
+  server.rev += 1;
+  return reply(200, { thesis: thesisOf(server.html), rev: server.rev });
+}
+const colleague = (fn) => { server.html = fn(server.html); server.rev += 1; };
+const texts = () => toasts.map((t) => t[0]).join(' | ');
+const view = () => run('_view');
+// открыть тезисы с текстом с сервера — как openThesis: новый экран, свежие блоки
+function openFresh(html) {
+  server.html = html; server.rev += 1;
+  run('_dropView(); _textConflict = null; currentId = "t1";');
+  sandbox.__data = { thesis: thesisOf(server.html), rev: server.rev };
+  run('applyThesis(globalThis.__data);');
+  server.sent.length = 0; toasts.length = 0;
+}
+const keyOf = (title) => run("keyedSections(_thesis.html).filter((s) => s.title === " + JSON.stringify(title) + ")[0].id");
 
 (async () => {
-  // ── 1. фокус на панели — не уход из редактора ─────────────────────────
-  vm.runInContext('_mountEditor()', sandbox);
-  assert.strictEqual(quills.length, 1, 'редактор поднят');
-  const quill = quills[0];
-  assert.ok(vm.runInContext('_editorWrap', sandbox) === wrap, 'обёртка запомнена');
+  run('currentUser = { login: "emp", is_admin: false, is_chief: false };');
+  // ── 1. разделы ───────────────────────────────────────────────────────
+  const DOC = '<p>Коллеги, добрый день.</p>' +
+    '<h2>Контекст</h2><ul><li>Клубы есть в 80 % школ.</li><li>Охват растёт.</li></ul>' +
+    '<h3 class="ql-align-center">Проблемы &amp; риски</h3><p>Нет <strong>тренеров</strong>.</p>' +
+    '<h1>Выводы</h1><ul><li>Нужна программа.</li></ul>' +
+    '<h2>Поручения</h2><ol><li>Подготовить доклад.</li></ol>';
+  const secs = sandbox.splitSections(DOC);
+  assert.deepStrictEqual(Array.from(secs, (s) => [s.id, s.title]), [['intro', ''], ['s0', 'Контекст'],
+    ['s1', 'Проблемы & риски'], ['s2', 'Выводы'], ['s3', 'Поручения']], 'разделы по заголовкам h1–h3');
+  assert.strictEqual(secs[0].body, '<p>Коллеги, добрый день.</p>', 'текст до первого заголовка — вступление');
+  assert.strictEqual(secs[2].head, '<h3 class="ql-align-center">Проблемы &amp; риски</h3>', 'заголовок раздела — как был');
+  assert.strictEqual(sandbox.joinSections(secs), DOC, 'сборка обратно — тот же HTML');
+  assert.deepStrictEqual(Array.from(sandbox.splitSections('<ul><li>а</li></ul>'), (s) => [s.id, s.body]),
+    [['intro', '<ul><li>а</li></ul>']], 'без заголовков — один раздел');
 
-  sandbox.document.activeElement = quill.root;
-  const label = el('ql-picker-label (палитра цвета)', toolbar);
-  leaveTextTo(label);
-  await sleep(350);
-  assert.strictEqual(rendered(), 0, 'фокус ушёл на палитру цвета — редактор не пересобран');
-  assert.ok(vm.runInContext('_quill', sandbox) === quill, 'тот же живой редактор — выделение цело');
+  // правка одного раздела: остальные — байт в байт, свой заголовок — <h2>, если его поменяли
+  assert.strictEqual(sandbox.withSection(secs, 's1', '<p>Нет тренеров и залов.</p>', { title: 'Проблемы & риски' }),
+    DOC.replace('<p>Нет <strong>тренеров</strong>.</p>', '<p>Нет тренеров и залов.</p>'),
+    'название не меняли — заголовок прежний (уровень, выравнивание)');
+  const renamed = sandbox.withSection(secs, 's1', '<p>Х</p>', { title: '  Главные   <риски> ' });
+  assert.ok(renamed.indexOf('<h2>Главные &lt;риски&gt;</h2><p>Х</p><h1>Выводы</h1>') > 0, 'новое название — <h2>: ' + renamed);
+  assert.ok(sandbox.withSection(secs, 's1', '<p>Х</p>', { title: '' }).indexOf('</ul><p>Х</p><h1>Выводы</h1>') > 0,
+    'пустое название снимает заголовок');
+  assert.strictEqual(sandbox.withSection(secs, 's9', '<p>я</p>', { title: 'Мой' }), null,
+    'раздела нет — никуда не кладём молча');
 
-  // нажатие на панель не забирает фокус у текста (выделение остаётся видно)
+  // устойчивые ключи (К-1): вставка и удаление раздела выше не сдвигают ключей остальных
+  run('_keyed = { html: null, list: [] };');
+  const k1 = sandbox.keyedSections(DOC).map((s) => [s.title, s.id]);
+  const k2 = sandbox.keyedSections(DOC.replace('<h2>Контекст</h2><ul><li>Клубы есть в 80 % школ.</li><li>Охват растёт.</li></ul>',
+    '<h2>Масштаб</h2><p>М.</p>')).map((s) => [s.title, s.id]);
+  const byTitle = (l, t) => l.filter((x) => x[0] === t)[0][1];
+  ['Проблемы & риски', 'Выводы', 'Поручения'].forEach((t) => assert.strictEqual(byTitle(k2, t), byTitle(k1, t), 'ключ «' + t + '» тот же'));
+  assert.ok(k1.every((x) => x[1] !== byTitle(k2, 'Масштаб')), 'новый раздел — новый ключ, чужого не берёт');
+  const k3 = sandbox.keyedSections(DOC.replace('<p>Нет <strong>тренеров</strong>.</p>', '<p>Другой текст.</p>')).map((s) => [s.title, s.id]);
+  assert.strictEqual(byTitle(k3, 'Проблемы & риски'), byTitle(k1, 'Проблемы & риски'), 'текст поменяли — ключ по названию');
+
+  // цвет блока по смыслу названия
+  const buckets = {
+    'Контекст': 'org', 'Вступление': 'org', 'Введение': 'org', 'Масштаб': 'report', 'Результаты': 'report',
+    'Что сделано': 'report', 'Проблемы': 'problem', 'Риски': 'problem', 'Выводы': 'decision',
+    'Заключение': 'decision', 'Поручения': 'action', 'Задачи': 'action', 'Предложения': 'action',
+    'Предложения по итогам': 'action', 'О спорте': 'org', '': 'org',
+  };
+  Object.keys(buckets).forEach((k) => assert.strictEqual(sandbox.bucketOf(k), buckets[k], 'вид блока «' + k + '»'));
+
+  // карточка
+  run('_keyed = { html: null, list: [] };');
+  const tcard = sandbox.thesisCard({ html: DOC, minutes: 1, words_per_minute: 120 }, true);
+  assert.strictEqual(tcard.title, 'Тезисы выступления');
+  assert.deepStrictEqual(Array.from(tcard.actions, (a) => [a.act, a.label]), [['add', 'Добавить раздел']]);
+  assert.deepStrictEqual(Array.from(tcard.blocks, (b) => [b.label, b.bucket]), [['Вступление', 'org'],
+    ['Контекст', 'org'], ['Проблемы & риски', 'problem'], ['Выводы', 'decision'], ['Поручения', 'action']]);
+  assert.strictEqual(tcard.blocks[0].fields, undefined, 'у вступления названия нет');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(tcard.blocks[1].fields)), [{ name: 'title', label: 'Название раздела', value: 'Контекст' }]);
+  assert.strictEqual(tcard.note, '6 пунктов · 0,1 из 1 мин', tcard.note);
+  assert.ok(/дольше отведённого/.test(sandbox.thesisCard({ html: '<p>' + 'слово '.repeat(150) + '</p>', minutes: 1 }, true).note));
+  run('_keyed = { html: null, list: [] };');
+  assert.deepStrictEqual(Array.from(sandbox.thesisCard({ html: '', minutes: 7 }, true).blocks, (b) => [b.label, b.deletable]),
+    [['Тезисы', false]], 'пустые тезисы — один блок «Тезисы», его не удалить');
+  assert.strictEqual(sandbox.thesisCard({ html: '', minutes: 7 }, false).blocks.length, 0, 'чтение: пусто');
+  assert.strictEqual(sandbox.thesisCard({ html: DOC, minutes: 7 }, false).actions.length, 0, 'чтение — без «Добавить раздел»');
+
+  // ── 2. сохранение блока и чужие правки ────────────────────────────────
+  sandbox.fetch = serverFetch;
+  openFresh(DOC);
+  let v = view();
+  assert.ok(v && v.ids().length === 5, 'блоки смонтированы');
+
+  // своё «Сохранить»: весь HTML с этим разделом, версия — что на руках
+  const kCtx = keyOf('Контекст');
+  v.open(kCtx);
+  v.type('<ul><li>Клубы есть почти везде.</li></ul>');
+  await v.save();
+  await sleep(5);
+  assert.strictEqual(server.sent.length, 1, 'один запрос');
+  assert.strictEqual(server.sent[0].url, 'api/theses/t1/text');
+  assert.strictEqual(server.sent[0].body.rev, server.rev - 1, 'с версией, что на руках');
+  assert.strictEqual(server.sent[0].body.html, DOC.replace('<ul><li>Клубы есть в 80 % школ.</li><li>Охват растёт.</li></ul>',
+    '<ul><li>Клубы есть почти везде.</li></ul>'), 'уходит весь HTML, разделы по порядку');
+  assert.strictEqual(v.editing(), null, 'редактор закрыт');
+  assert.strictEqual(run('_thesis.html'), server.html, 'страница — со свежим текстом');
+
+  // (а) коллега удалил раздел ВЫШЕ моего: 409 — и моё ложится само, чужое цело, без дублей
+  openFresh(DOC); v = view();
+  v.open(keyOf('Выводы'));
+  v.type('<ul><li>Мой вывод.</li></ul>');
+  colleague((h) => h.replace(/<h2>Контекст<\/h2><ul>.*?<\/ul>/, ''));
+  await v.save();
+  await sleep(5);
+  assert.strictEqual(server.sent.length, 2, '409, затем повтор от свежей версии');
+  assert.strictEqual(server.html, '<p>Коллеги, добрый день.</p><h3 class="ql-align-center">Проблемы &amp; риски</h3>' +
+    '<p>Нет <strong>тренеров</strong>.</p><h1>Выводы</h1><ul><li>Мой вывод.</li></ul><h2>Поручения</h2><ol><li>Подготовить доклад.</li></ol>',
+    'удаление коллеги на месте, мой вывод — в своём разделе: ' + server.html);
+  assert.strictEqual(run('_textConflict'), null);
+
+  // (а') коллега вставил раздел выше моего — то же
+  openFresh(DOC); v = view();
+  v.open(keyOf('Выводы'));
+  v.type('<ul><li>Мой вывод.</li></ul>');
+  colleague((h) => h.replace('<h1>Выводы</h1>', '<h2>Масштаб коллеги</h2><p>М.</p><h1>Выводы</h1>'));
+  await v.save();
+  await sleep(5);
+  assert.ok(server.html.indexOf('<h2>Масштаб коллеги</h2><p>М.</p><h1>Выводы</h1><ul><li>Мой вывод.</li></ul><h2>Поручения</h2>') > 0, server.html);
+  assert.strictEqual((server.html.match(/Выводы/g) || []).length, 1, 'без дублей');
+
+  // (б) коллега ИЗМЕНИЛ мой раздел: поверх не пишем — «Ваш текст», плашка, предупреждение при уходе
+  openFresh(DOC); v = view();
+  const kProb = keyOf('Проблемы & риски');
+  v.open(kProb);
+  v.type('<p>Мои проблемы.</p>');
+  colleague((h) => h.replace('Нет <strong>тренеров</strong>.', 'Нет тренеров и залов.'));
+  const theirs = server.html;
+  let err = null;
+  await v.save().catch((e) => { err = e; });
+  await sleep(5);
+  assert.ok(err && err.message === 'stale', 'отказ «stale»');
+  assert.strictEqual(server.html, theirs, 'их раздел цел');
+  const c = run('_textConflict');
+  assert.ok(c && c.html === '<p>Мои проблемы.</p>' && c.name === 'Проблемы & риски', JSON.stringify(c));
+  assert.strictEqual(v.editing(), c.key, 'мой текст — в редакторе, в отдельном блоке');
+  assert.strictEqual(v.html(), '<p>Мои проблемы.</p>');
+  const theirBlock = v.ids().map((id) => v.find(id)).filter((b) => b.label === 'Проблемы & риски')[0];
+  assert.ok(theirBlock && theirBlock.html === '<p>Нет тренеров и залов.</p>', 'их раздел — на экране');
+  assert.ok(theirBlock.id !== kProb && theirBlock.id !== c.key, 'и под другим ключом: мой текст на него не откроется');
+  assert.ok(/Ваш текст не сохранён/.test(texts()) && /не ляжет/.test(texts()), texts());
+  assert.ok(/Вставить как новый раздел/.test(conflictBox.innerHTML) && /Не сохранять/.test(conflictBox.innerHTML),
+    'плашка видна после перерисовки');
   let prevented = false;
-  toolbar.fire('mousedown', { target: { closest: () => null }, preventDefault() { prevented = true; } });
-  assert.ok(prevented, 'mousedown на панели: preventDefault — фокус и выделение остаются в тексте');
+  run('_onBeforeUnload')({ preventDefault() { prevented = true; } });
+  assert.ok(prevented, 'уйти со страницы — браузер переспросит');
+  // второе «Сохранить» — ни поверх, ни дублем
+  server.sent.length = 0;
+  err = null;
+  await v.save().catch((e) => { err = e; });
+  assert.ok(err && server.sent.length === 0, 'второе «Сохранить» ничего не пишет');
+  // «Отмена» в блоке «Ваш текст» — текст не теряется, плашка остаётся
+  v.type('<p>Мои проблемы, дописал.</p>');
+  run('_syncMine()');
+  v.close();
+  assert.strictEqual(run('_textConflict.html'), '<p>Мои проблемы, дописал.</p>');
+  assert.ok(/Вставить как новый раздел/.test(conflictBox.innerHTML));
+  // закрытие страницы — мой текст поверх чужого не уходит
+  server.sent.length = 0;
+  (winHandlers.pagehide || []).forEach((fn) => fn({}));
+  assert.ok(!server.sent.some((r) => /\/text$/.test(r.url)), 'pagehide не пишет «Ваш текст»');
+  // «Вставить как новый раздел» — в конце, с моим названием; их раздел цел
+  await run('insertMine()');
+  await sleep(5);
+  assert.strictEqual(server.html, theirs + '<h2>Проблемы &amp; риски</h2><p>Мои проблемы, дописал.</p>', server.html);
+  assert.strictEqual(run('_textConflict'), null);
+  assert.strictEqual(conflictBox.innerHTML, '');
 
-  // фокус на панели, а focusout пришёл без relatedTarget (Safari) — решает activeElement
-  leaveTextTo(label, null);
-  await sleep(350);
-  assert.strictEqual(rendered(), 0, 'фокус внутри обёртки — не уход, даже без relatedTarget');
+  // (в) коллега УДАЛИЛ мой раздел: то же; «Не сохранять» — после подтверждения
+  openFresh(DOC); v = view();
+  v.open(keyOf('Поручения'));
+  v.type('<ol><li>Моё поручение.</li></ol>');
+  colleague((h) => h.replace(/<h2>Поручения<\/h2>.*$/, ''));
+  await v.save().catch(() => {});
+  await sleep(5);
+  assert.ok(run('_textConflict') && v.editing() === run('_textConflict.key'), 'удалённый раздел — мой текст в редакторе');
+  assert.ok(!/Поручения/.test(server.html));
+  confirmAnswer = false;
+  await run('dropMine()');
+  assert.ok(run('_textConflict'), 'передумал — текст на месте');
+  confirmAnswer = true;
+  await run('dropMine()');
+  assert.strictEqual(run('_textConflict'), null);
+  assert.strictEqual(v.editing(), null);
+  assert.ok(!v.ids().some((id) => /^m/.test(id)), 'блок «Ваш текст» убран');
 
-  // телефон: касание палитры отдало фокус странице, но палитра открыта — человек выбирает цвет
-  pickerOpen = true;
-  leaveTextTo(body, null);
-  await sleep(350);
-  assert.strictEqual(rendered(), 0, 'открытая палитра — не уход из редактора');
-  pickerOpen = false;
+  // перечитали экран (без 409), пока правлю, — мой раздел изменили: «Ваш текст» сразу
+  openFresh(DOC); v = view();
+  v.open(keyOf('Выводы'));
+  v.type('<ul><li>Мой вывод.</li></ul>');
+  colleague((h) => h.replace('Нужна программа.', 'Вывод «Искры».'));
+  sandbox.__data = { thesis: thesisOf(server.html), rev: server.rev };
+  run('applyThesis(globalThis.__data);');
+  await sleep(5);
+  assert.ok(run('_textConflict') && v.html() === '<ul><li>Мой вывод.</li></ul>', 'набранное не исчезло (К-3)');
+  // закрытие страницы: «Ваш текст» не шлём — вывод «Искры» не затрётся (К-2)
+  server.sent.length = 0;
+  (winHandlers.pagehide || []).forEach((fn) => fn({}));
+  assert.strictEqual(server.sent.filter((r) => /\/text$/.test(r.url)).length, 0);
+  run('_textConflict = null; _view.close();');
 
-  // пока фокус на панели, перерисовка страницы (опрос задания) сохраняет живой редактор
-  sandbox.document.activeElement = label;
-  vm.runInContext("_editorBase.html = _thesis.html; _editorDirty = false;", sandbox);
-  assert.ok(vm.runInContext('_editorToKeep()', sandbox) === wrap, 'фокус на панели — редактор переносится, а не пересобирается');
-  assert.strictEqual(vm.runInContext('_refreshEditor(); _quill', sandbox), quill, '_refreshEditor при фокусе на панели ничего не делает');
-  assert.strictEqual(rendered(), 0);
+  // (г) открыт без правки, экран перечитан с новым текстом раздела — «Сохранить» с первого раза (Н-1)
+  openFresh(DOC); v = view();
+  const kOut = keyOf('Выводы');
+  v.open(kOut);
+  colleague((h) => h.replace('Нужна программа.', 'Нужна программа до 2030 года.'));
+  sandbox.__data = { thesis: thesisOf(server.html), rev: server.rev };
+  run('applyThesis(globalThis.__data);');
+  assert.strictEqual(v.editing(), kOut, 'тот же раздел открыт заново');
+  assert.strictEqual(v.html(), '<ul><li>Нужна программа до 2030 года.</li></ul>', 'со свежим текстом');
+  v.type('<ul><li>Нужна программа до 2030 года и кадры.</li></ul>');
+  server.sent.length = 0; toasts.length = 0;
+  await v.save();
+  await sleep(5);
+  assert.strictEqual(server.sent.length, 1, 'с первого раза, без ложного «раздел изменили»: ' + texts());
+  assert.ok(/и кадры/.test(server.html));
 
-  // ── а уход за пределы редактора — сохранение и пересборка с пометками, ровно одна ──
-  sandbox.document.activeElement = quill.root;
-  leaveTextTo(outside);
-  await sleep(350);
-  assert.strictEqual(rendered(), 1, 'ушли из редактора — одна пересборка');
-  assert.strictEqual(vm.runInContext('_quill', sandbox), null, 'старый редактор отпущен');
+  // закрытие страницы — версия, от которой шла правка (К-2, П4 RC-2026-09-21-17)
+  openFresh(DOC); v = view();
+  const startRev = run('_currentRev');
+  v.open(keyOf('Контекст'));
+  v.type('<p>Набираю.</p>');
+  run('_currentRev = _currentRev + 5;');           // где-то версия ушла вперёд, а экран не перечитан
+  server.sent.length = 0;
+  (winHandlers.pagehide || []).forEach((fn) => fn({}));
+  const hide = server.sent.filter((r) => /\/text$/.test(r.url));
+  assert.strictEqual(hide.length, 1);
+  assert.ok(hide[0].keepalive, 'keepalive');
+  assert.strictEqual(hide[0].body.rev, startRev, 'версия начала правки — сервер ответит 409, чужое не затрётся');
+  assert.ok(hide[0].body.html.indexOf('<h2>Контекст</h2><p>Набираю.</p><h3') > 0, hide[0].body.html);
+  run('_currentRev = ' + startRev + '; _view.close();');
 
-  // ── 2. очистка разметки: что ставит панель — проходит, лишнее — нет ────
-  const hooks = {};
-  sandbox.DOMPurify = { isSupported: true, addHook(name, fn) { hooks[name] = fn; } };
-  assert.ok(vm.runInContext('_initPurify()', sandbox), 'очистка подключилась');
-  const attr = (name, value) => {
-    const data = { attrName: name, attrValue: value, keepAttr: true };
-    hooks.uponSanitizeAttribute({}, data);
-    return data.keepAttr ? data.attrValue : null;
+  // «Добавить раздел»: до «Сохранить» только на экране; «Отмена» не оставляет следа; дважды — один (Н-2)
+  openFresh(DOC); v = view();
+  run('_addSection(); _addSection();');
+  const newKey = v.editing();
+  assert.ok(newKey && v.find(newKey).label === 'Новый раздел', 'открыт новый блок');
+  assert.strictEqual(v.ids().filter((id) => v.find(id).label === 'Новый раздел').length, 1, 'двойное нажатие — один блок');
+  assert.strictEqual(server.sent.length, 0, 'ничего не сохранено');
+  v.close();
+  await sleep(5);
+  assert.ok(!v.ids().some((id) => v.find(id).label === 'Новый раздел'), '«Отмена» — блока нет');
+  assert.strictEqual(server.sent.length, 0);
+  run('_addSection();');
+  v.type('<p>Подготовить доклад.</p>', { title: 'Итоги' });
+  await v.save();
+  await sleep(5);
+  assert.strictEqual(server.sent.length, 1);
+  assert.strictEqual(server.html, DOC + '<h2>Итоги</h2><p>Подготовить доклад.</p>');
+  assert.ok(!v.ids().some((id) => v.find(id).label === 'Новый раздел'), 'после сохранения — обычный раздел');
+  assert.ok(v.ids().length === 6);
+
+  // удаление раздела — с подтверждением; отказ — false, ничего не уходит
+  openFresh(DOC); v = view();
+  confirmAnswer = false;
+  assert.strictEqual(await run('_deleteSection({ block: { id: ' + JSON.stringify(keyOf('Контекст')) + ', label: "Контекст" } })'), false);
+  assert.strictEqual(server.sent.length, 0, 'не подтвердили — не удаляем');
+  confirmAnswer = true;
+  v.open(keyOf('Выводы'));
+  v.type('<p>несохранённое</p>');
+  assert.strictEqual(await run('_deleteSection({ block: { id: ' + JSON.stringify(keyOf('Контекст')) + ', label: "Контекст" } })'), false,
+    'в другом блоке несохранённое — сначала решить с ним');
+  assert.strictEqual(server.sent.length, 0);
+  run('_view.close();');
+  const kDel = keyOf('Проблемы & риски');
+  assert.strictEqual(await run('_deleteSection({ block: { id: ' + JSON.stringify(kDel) + ', label: "Проблемы & риски" } })'), true);
+  assert.ok(/раздел «Проблемы & риски» целиком/.test(asked), asked);
+  assert.strictEqual(server.html, DOC.replace('<h3 class="ql-align-center">Проблемы &amp; риски</h3><p>Нет <strong>тренеров</strong>.</p>', ''));
+
+  // предупреждение при уходе (Н-8): есть несохранённое — переспросить; нет — молчать
+  openFresh(DOC); v = view();
+  const unload = run('_onBeforeUnload');
+  let ev = { prevented: false, returnValue: undefined, preventDefault() { this.prevented = true; } };
+  unload(ev);
+  assert.ok(!ev.prevented, 'нечего терять — не спрашиваем');
+  v.open(keyOf('Контекст'));
+  v.type('<p>x</p>');
+  ev = { prevented: false, preventDefault() { this.prevented = true; } };
+  unload(ev);
+  assert.ok(ev.prevented && ev.returnValue === '', 'несохранённое в блоке — браузер переспросит');
+  run('_view.close();');
+
+  // ── 3. замена слова наполовину латиницей ─────────────────────────────
+  openFresh('<h2>Задачи</h2><p>По <strong>zadанию</strong> и zadанию.</p>');
+  v = view();
+  v.open(keyOf('Задачи'));
+  v.type('<p>Набираю zadанию</p>');
+  const qOps = [];
+  v._quill = {
+    text: 'Набираю zadанию\n',
+    getText() { return this.text; },
+    deleteText(at, len) { qOps.push(['del', at, len]); this.text = this.text.slice(0, at) + this.text.slice(at + len); },
+    insertText(at, s) { qOps.push(['ins', at, s]); this.text = this.text.slice(0, at) + s + this.text.slice(at); },
   };
-  // Quill 2 пишет цвет через style.color — браузер отдаёт «color: rgb(230, 0, 0);»
-  assert.strictEqual(attr('style', 'color: rgb(230, 0, 0);'), 'color: rgb(230, 0, 0)');
-  assert.strictEqual(attr('style', 'color:#e60000'), 'color:#e60000', 'сервер хранит цвет как #hex');
-  assert.strictEqual(attr('style', 'color: rgb(230, 0, 0); background-color: rgb(255, 255, 0);'),
-    'color: rgb(230, 0, 0);background-color: rgb(255, 255, 0)', 'цвет и заливка вместе');
-  assert.strictEqual(attr('style', 'background-color:#ffff00'), 'background-color:#ffff00');
-  assert.strictEqual(attr('style', 'font-family: serif; font-size: 18px'), null, 'шрифт и размер не проходят');
-  assert.strictEqual(attr('style', 'color: rgb(230, 0, 0); position: fixed'), 'color: rgb(230, 0, 0)');
-  assert.strictEqual(attr('class', 'ql-align-center'), 'ql-align-center', 'выравнивание');
-  assert.strictEqual(attr('class', 'ql-indent-1'), 'ql-indent-1', 'отступ');
-  assert.strictEqual(attr('class', 'ql-align-right ql-indent-2'), 'ql-align-right ql-indent-2');
-  assert.strictEqual(attr('class', 'ql-font-serif'), null, 'шрифта в наборе нет');
-  assert.strictEqual(attr('class', 'ql-size-large ql-syntax'), null);
-  assert.strictEqual(attr('data-list', 'bullet'), 'bullet', 'вид пункта списка Quill');
-  assert.strictEqual(attr('data-language', 'plain'), null, 'блока кода в наборе нет');
+  await run("replaceWord('zadанию', 'заданию')");
+  await sleep(5);
+  assert.strictEqual(server.sent.length, 1);
+  assert.strictEqual(server.sent[0].body.html, '<h2>Задачи</h2><p>По <strong>заданию</strong> и заданию.</p>', 'разметка цела');
+  assert.strictEqual(v._quill.text, 'Набираю заданию\n', 'и в открытом редакторе');
+  assert.strictEqual(run('_textConflict'), null, 'своя замена — не чужая правка');
+  assert.strictEqual(v.editing(), keyOf('Задачи'), 'редактор на своём разделе');
+  assert.strictEqual(sandbox._replaceInText('<a href="https://x.ru/zadанию">zadанию</a>', 'zadанию', 'заданию'),
+    '<a href="https://x.ru/zadанию">заданию</a>', 'в тегах и адресах не меняем');
+  run('_view.close(); _dropView();');
+  sandbox.fetch = () => new Promise(() => {});
 
-  const cfg = vm.runInContext('_PURIFY_CFG', sandbox);
-  const tags = new Set(cfg.ALLOWED_TAGS);
-  ['p', 'br', 'h1', 'h2', 'h3', 'strong', 'em', 'u', 's', 'span', 'ol', 'ul', 'li', 'a', 'blockquote']
-    .forEach((t) => assert.ok(tags.has(t), 'панель ставит <' + t + '> — очистка пропускает'));
-  ['h4', 'sub', 'sup', 'code', 'img', 'font', 'div', 'script', 'iframe']
-    .forEach((t) => assert.ok(!tags.has(t), '<' + t + '> панель не ставит — очистка не пропускает'));
-  assert.deepStrictEqual(Array.from(cfg.ALLOWED_ATTR).sort(), ['class', 'href', 'style']);
-  assert.ok(cfg.ALLOWED_URI_REGEXP.test('https://example.org/a') && cfg.ALLOWED_URI_REGEXP.test('mailto:a@b.ru'));
-  assert.ok(!cfg.ALLOWED_URI_REGEXP.test('javascript:alert(1)') && !cfg.ALLOWED_URI_REGEXP.test('data:text/html,x'),
-    'ссылка — только безопасная');
-
-  // ── 3. панель — ровно единый набор ────────────────────────────────────
-  const tb = vm.runInContext('TOOLBAR_HTML', sandbox);
-  const controls = [];
-  tb.replace(/<(button|select)\b([^>]*)>/g, (m, tag, attrs) => {
-    const cls = (attrs.match(/class="ql-([a-z-]+)/) || [])[1];
-    const val = (attrs.match(/\bvalue="([^"]*)"/) || [])[1];
-    controls.push(val ? cls + ':' + val : cls);
-    return m;
-  });
-  assert.deepStrictEqual(controls, ['header', 'bold', 'italic', 'underline', 'strike', 'color', 'background',
-    'list:ordered', 'list:bullet', 'indent:-1', 'indent:+1', 'align', 'link', 'blockquote', 'clean', 'marker'],
-    'единый набор панели, как в «Совещании», и «Нужна цифра» в конце');
-  const groups = tb.split('<span class="ql-formats">').slice(1).map((g) => (g.match(/class="ql-([a-z-]+)/g) || [])
-    .map((c) => c.slice(10)));
-  assert.deepStrictEqual(groups, [['header'], ['bold', 'italic', 'underline', 'strike'], ['color', 'background'],
-    ['list', 'list', 'indent', 'indent'], ['align'], ['link', 'blockquote'], ['clean'], ['marker']], 'группы панели');
-  assert.ok(/<select class="ql-header"[^>]*><option value="1"><\/option><option value="2"><\/option><option value="3"><\/option><option selected><\/option><\/select>/.test(tb),
-    'заголовок 1, 2, 3, обычный');
-  assert.ok(!/ql-font|ql-code-block|ql-size|ql-image|ql-video|ql-script/.test(tb), 'без шрифта и блока кода');
-
-  // палитры: первый пункт — «убрать», остальные — только то, что сервер сохраняет
-  const luma = (c) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; };
-  const palette = (cls) => {
-    const m = tb.match(new RegExp('<select class="ql-' + cls + '"[^>]*>(.*?)</select>'));
-    assert.ok(m, 'палитра ' + cls);
-    assert.ok(m[1].startsWith('<option selected></option>'), cls + ': первый пункт — убрать оформление');
-    return (m[1].match(/value="(#[0-9a-f]{6})"/g) || []).map((v) => v.slice(7, 14));
+  // кнопка «Нужна цифра» ставит метку в переданный редактор
+  const ins = [];
+  const q = { root: { isConnected: true }, getSelection: () => ({ index: 3, length: 0 }), getLength: () => 10,
+    getText: () => 'а', insertText(at, s, f) { ins.push([at, s, f && f.color]); }, setSelection() {} };
+  let markerOv = null;
+  sandbox.__modal = () => {
+    markerOv = { remove() {}, ok: { dataset: {}, isConnected: true } };
+    markerOv.querySelector = (sel) => ({ '#g-marker': { value: 'нужна цифра' }, '#g-text': { value: ' охват ' },
+      '#g-ok': markerOv.ok }[sel] || null);
+    return markerOv;
   };
-  const text = palette('color');
-  const back = palette('background');
-  assert.ok(text.length >= 12 && back.length >= 6, 'палитры не пустые');
-  // любая пара «цвет × заливка» расходится по яркости не меньше чем на 0,3 — иначе сервер снимет цвет (Н-3);
-  // сам перебор через функции сервера — tests/test_static_palette.py
-  text.forEach((c) => back.forEach((f) => assert.ok(Math.abs(luma(c) - luma(f)) >= 0.3, c + ' на ' + f)));
-  text.forEach((c) => assert.ok(luma(c) < 0.8, 'цвет текста ' + c + ' сервер сохраняет (не светлый)'));
-  back.forEach((c) => assert.ok(luma(c) > 0.35 && c !== '#ffffff', 'заливка ' + c + ' сервер сохраняет (не тёмная)'));
-  assert.ok(text.indexOf('#e60000') >= 0 && back.indexOf('#ffff00') >= 0, 'красный текст и жёлтая заливка есть');
+  run('modal = globalThis.__modal;');
+  sandbox.insertMarker(q);
+  await markerOv.ok.onclick.call(markerOv.ok);
+  assert.deepStrictEqual(ins, [[3, ' ', false], [4, '[нужна цифра: охват]', '#c00000'], [24, ' ', false]],
+    'метка — в тот редактор, чья панель: ' + JSON.stringify(ins));
 
   // ── 4. «Приложить материалы» — общая зона .dropzone ───────────────────
   const box = sandbox.attachBox('i-files', [], false);

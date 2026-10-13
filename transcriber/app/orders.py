@@ -8,17 +8,53 @@
 поручения без текста выкидываются, срок не придумывается.
 
 Документ Word собирает общий модуль `orders_docx.py` (`portal/shared/orders_docx.py`).
+
+Единый формат блоков (решение пользователя 13.10): человек правит поручение редактором с
+оформлением, поручение несёт необязательный ключ `html` (очищенный `richtext_common.clean`), а `text`
+тогда выводится из него. Word перечня строится по `text` — оформление в Word не идёт (эталон
+`orders_docx.py` не меняем). Ответ «Искры» html не несёт.
 """
 from __future__ import annotations
 
 import json
 import re
+import secrets
 from typing import Any, Callable
 
-from . import orders_docx, summarizer
+from . import orders_docx, richtext_common, summarizer
 
 MAX_ORDERS = 100
 MAX_TEXT = 2000
+# HTML поручения с оформлением длиннее текста (теги, цвета) — предел с запасом в 5 раз;
+# длиннее — оформление снимается, остаётся текст абзацами (обрезать HTML посреди тега нельзя)
+MAX_HTML = 5 * MAX_TEXT
+
+# Постоянный id поручения (ревью RC-2026-10-13-2, К-1): блок карточки привязан к поручению, а не к
+# номеру — иначе после удаления соседнего поручения или правки коллеги набранное ложилось на чужое.
+# Выдаётся при записи перечня (`ensure_ids`); правка человека его сохраняет (`from_human`).
+ORDER_ID = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
+
+
+def new_id() -> str:
+    return secrets.token_hex(4)
+
+
+def ensure_ids(items: list[dict[str, Any]], positional: bool = False) -> list[dict[str, Any]]:
+    """У каждого поручения — свой id; нет его или повтор — выдаём. `positional=True` — при чтении
+    старой записи: id по месту («o1», «o2»…), одинаковый при каждом чтении, пока перечень не
+    сохранят (тогда он запишется)."""
+    seen: set[str] = set()
+    for n, item in enumerate(items, start=1):
+        if not isinstance(item, dict):
+            continue
+        oid = item.get("id")
+        if not (isinstance(oid, str) and ORDER_ID.match(oid)) or oid in seen:
+            oid = f"o{n}" if positional else new_id()
+            while oid in seen:
+                oid = new_id()
+            item["id"] = oid
+        seen.add(oid)
+    return items
 
 AGENT_RULES = (
     "Ты работаешь как API. Не подключай навыки, не запускай команды, не создавай файлов.\n"
@@ -82,8 +118,28 @@ def normalize_deadline(value: Any) -> str:
     return text[:200]
 
 
-def check_schema(result: Any) -> list[dict[str, str]]:
-    """Ответ «Искры» → список поручений по схеме. Не объект и не список — ValueError."""
+def _html_and_text(item: dict[str, Any]) -> tuple[str, str]:
+    """Поручение из редактора: очищенный HTML и текст из него (решение пользователя 13.10)."""
+    raw = item.get("html")
+    if not isinstance(raw, str):
+        return "", _text(item.get("text"))[:MAX_TEXT]
+    # предел — до разбора разметки: поручение на мегабайты не должно занимать сервер секундами
+    # (ревью RC-2026-10-13-6, Н-3); дальше всё равно остаётся текст не длиннее MAX_TEXT
+    raw = raw[:MAX_HTML * 5]
+    if richtext_common.is_blank(raw):
+        return "", _text(item.get("text"))[:MAX_TEXT]
+    html = orders_docx.dash(richtext_common.clean(raw))
+    full = _text(richtext_common.text(html))
+    text = full[:MAX_TEXT]
+    if len(full) > MAX_TEXT or len(html) > MAX_HTML:
+        html = richtext_common.from_text(text)
+    return html, text
+
+
+def check_schema(result: Any, html: bool = False) -> list[dict[str, str]]:
+    """Ответ «Искры» → список поручений по схеме. Не объект и не список — ValueError.
+
+    `html=True` — правка человека: принимается ключ `html` (ответ «Искры» его не несёт)."""
     if isinstance(result, dict):
         raw = result.get("orders", [])
         if isinstance(raw, dict):
@@ -100,22 +156,32 @@ def check_schema(result: Any) -> list[dict[str, str]]:
             item = {"text": item}
         if not isinstance(item, dict):
             continue
-        text = _text(item.get("text"))[:MAX_TEXT]
+        if html:
+            styled, text = _html_and_text(item)
+        else:
+            styled, text = "", _text(item.get("text"))[:MAX_TEXT]
         if not text:
             continue
-        out.append({"text": text,
-                    "assignee": _text(item.get("assignee"))[:200],
-                    "deadline": normalize_deadline(item.get("deadline"))})
+        order = {"text": text,
+                 "assignee": _text(item.get("assignee"))[:200],
+                 "deadline": normalize_deadline(item.get("deadline"))}
+        if styled:
+            order["html"] = styled
+        oid = item.get("id")
+        if html and isinstance(oid, str) and ORDER_ID.match(oid):
+            order["id"] = oid                    # правка человека — id поручения сохраняется
+        out.append(order)
         if len(out) >= MAX_ORDERS:
             break
     return out
 
 
 def from_human(items: Any) -> list[dict[str, str]]:
-    """Правка человеком: тот же разбор, что у ответа «Искры» (строки без текста — прочь)."""
+    """Правка человеком: тот же разбор, что у ответа «Искры» (строки без текста — прочь),
+    плюс оформление поручения (`html`, решение пользователя 13.10)."""
     if not isinstance(items, list):
         raise ValueError("Поручения — список")
-    return check_schema({"orders": items})
+    return check_schema({"orders": items}, html=True)
 
 
 def parse_json(content: str) -> Any:

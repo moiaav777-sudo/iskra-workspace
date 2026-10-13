@@ -525,11 +525,11 @@ def B(text, *facts):
 
 SECTION_KINDS = ("p", "bullet", "head")
 
-# Абзац правят в Quill (просьба пользователя 28.09, как сценарий в «Совещании»): экран отдаёт
-# и принимает текст абзаца обычной строкой, где полужирный кусок обёрнут в <strong>…</strong> —
-# больше никакой разметки экран не выпускает (formats: ["bold"] в ui.html). human_parts разбирает
-# такую строку в список {"text", "b"} для Doc.segs; вид абзаца (обычный/маркер/заголовок) в этой
-# разметке не участвует — это отдельный, уже существующий выбор человека (кнопка «¶ • H»).
+# Раздел правят блоком общего редактора (единый формат блоков, решение пользователя 13.10): экран
+# разбирает блок обратно в абзацы и отдаёт текст абзаца обычной строкой, где полужирный кусок обёрнут
+# в <strong>…</strong> — остальное оформление панели экран снимает (parseSectionHtml в ui.html), сервер
+# снимает ещё раз (server.clean_sections). human_parts разбирает такую строку в список {"text", "b"}
+# для Doc.segs; вид абзаца (обычный/пункт/заголовок) в этой разметке не участвует — он идёт полем kind.
 _HUMAN_TAG_RE = re.compile(r"<(/?)(?:strong|b)\s*>", re.IGNORECASE)
 _HUMAN_ENTITIES = (("&nbsp;", " "), ("&amp;", "&"), ("&lt;", "<"), ("&gt;", ">"),
                     ("&quot;", '"'), ("&#39;", "'"), ("&apos;", "'"))
@@ -616,18 +616,25 @@ def apply_edits(d, paras, edits):
             out.append(xml)
             sections.append({"text": text, "kind": kind, "orig": text, "manual": False})
         else:
+            # вид абзаца человек меняет и у собранного абзаца (блоки, решение пользователя 13.10):
+            # правка несёт kind, если вид другой; orig_kind — вид собранного абзаца, по нему
+            # edits_from_sections понимает, что смена вида — тоже правка
+            new_kind = e.get("kind") if e.get("kind") in SECTION_KINDS else kind
             now_raw = " ".join(str(e.get("now") or "").split())
             parts = human_parts(now_raw)
             if parts:
-                out.append(manual_para(d, parts, kind))
-            sections.append({"text": now_raw, "kind": kind, "orig": text, "manual": True})
+                out.append(manual_para(d, parts, new_kind))
+            sections.append({"text": now_raw, "kind": new_kind, "orig": text, "manual": True, "orig_kind": kind})
         add_after(text)
     return out, sections
 
 
-def edits_from_sections(items):
+def edits_from_sections(items, orig_kinds=None):
     """Список абзацев с экрана → правки: {was, now, kind, after}. Абзац с orig и тем же текстом —
-    не правка; пустой text у абзаца с orig — убрать; без orig — добавлен человеком."""
+    не правка; пустой text у абзаца с orig — убрать; без orig — добавлен человеком.
+
+    orig_kinds — {текст собранного абзаца: его вид} (из прошлой сборки, apply_edits): у абзаца
+    с orig другой вид — тоже правка, она несёт kind. Без него вид собранного абзаца не меняется."""
     edits, last_orig = [], ""
     for it in items or []:
         if not isinstance(it, dict):
@@ -638,8 +645,10 @@ def edits_from_sections(items):
         if orig:
             # изменилась не только формулировка: одна лишь разметка (жирный) — тоже правка,
             # иначе выделение, которое человек сам выбрал, при пересборке пропадёт
-            if human_plain(text) != orig or _HUMAN_TAG_RE.search(text):
-                edits.append({"was": orig, "now": text})
+            was_kind = (orig_kinds or {}).get(orig)
+            new_kind = bool(text) and was_kind in SECTION_KINDS and kind != was_kind
+            if human_plain(text) != orig or _HUMAN_TAG_RE.search(text) or new_kind:
+                edits.append(dict({"was": orig, "now": text}, **({"kind": kind} if new_kind else {})))
             last_orig = orig
         elif text:
             edits.append({"was": "", "now": text, "kind": kind, "after": last_orig})

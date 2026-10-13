@@ -498,6 +498,7 @@ def save_text(tid: str, body: TextIn):
     stored = _stored_or_404(tid)
     thesis = stored.thesis
     before_html = thesis.html
+    before_heads = thesis.headings()
     old = list(thesis.bullets)
     thesis.set_html(_heal_text(thesis, html))
     if thesis.html == before_html:
@@ -527,11 +528,24 @@ def save_text(tid: str, body: TextIn):
                      + (f" и ещё {len(marked) - 1}" if len(marked) > 1 else ""))
     if [b.id for b in fresh if b.id in kept] != [b.id for b in old if b.id in kept]:
         parts.append("изменён порядок")
-    if not changed and not marked and len(old) == len(fresh) and not (
+    # разделы — заголовки текста (решение пользователя 13.10): их правка в журнале словами
+    heads = thesis.headings()
+    if heads != before_heads:
+        parts.append("разделы: " + _heads_list(before_heads) + " → " + _heads_list(heads))
+    if not changed and not marked and len(old) == len(fresh) and heads == before_heads and not (
             [b.id for b in fresh if b.id in kept] != [b.id for b in old if b.id in kept]):
         parts.append("изменено оформление")
     portal.note_object(tid)
     return _save(stored, body.rev, "; ".join(parts))
+
+
+def _heads_list(heads: list[str], limit: int = 5) -> str:
+    """Названия разделов для журнала: первые `limit` и «и ещё N» — при 20 разделах запись
+    не разрастается (ревью RC-2026-10-13-3, Н-6)."""
+    if not heads:
+        return "нет"
+    shown = ", ".join(f"«{_short(h, 30)}»" for h in heads[:limit])
+    return shown + (f" и ещё {len(heads) - limit}" if len(heads) > limit else "")
 
 
 def _heal_text(thesis: Thesis, html: str) -> str:

@@ -5,7 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Бриф из справки</title>
 <link rel="stylesheet" href="/static/base.css">
-<link rel="stylesheet" href="vendor/quill.snow.css">
+<!-- Единый формат блоков (решение пользователя 13.10): редактор и компонент блоков — общие, их отдаёт
+     портал. ?v= — md5 файла, как у страниц портала (portal/scripts/stamp_static.py); сам ui.html идёт
+     с no-store, а /static/ портал отдаёт с no-cache, так что браузер перечитает и при устаревшем штампе. -->
+<link rel="stylesheet" href="/static/vendor/quill.snow.css?v=3d3d589c">
+<link rel="stylesheet" href="/static/blocks.css?v=d3ebc100">
 <style>
 /* Цвета, шрифт и размер основного текста — общие для всего пространства, в /static/base.css
    (его отдаёт портал): --font, --text-base, --text-h2. Своих здесь нет — контракт п. 5б.
@@ -141,24 +145,16 @@ textarea::placeholder{color:var(--ink-3);font-style:italic;opacity:.8}
 .pick input[type=checkbox]{margin-top:6px;width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
 .pick textarea{border:0;background:transparent;min-height:0;padding:3px 0;font:0.875rem/1.45 var(--font);resize:none;overflow:hidden}
 .pick textarea:focus{outline:none;box-shadow:inset 0 -1px 0 var(--accent)}
-.paras{margin:0 0 6px;padding:0;list-style:none;display:grid;gap:4px}
-.para{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
-.para.manual{border-color:var(--accent);background:var(--accent-soft)}
-.para.gone{opacity:.55}
-.para.gone textarea{text-decoration:line-through}
-.para .kind{margin-top:5px;width:16px;font-size:0.75rem;color:var(--ink-3);text-align:center;cursor:pointer;user-select:none}
-.para.head .rte{font-weight:650}
-.para .rte{min-width:0}
-.para .rte .ql-container.ql-snow{border:0;font:0.875rem/1.45 var(--font)}
-.para .rte .ql-editor{padding:3px 0;min-height:0}
-.para .rte .ql-editor.ql-blank::before{color:var(--ink-3);font-style:normal;left:0}
-.para.gone .rte{text-decoration:line-through}
-.para .ops{display:flex;gap:2px}
-.para .ops button{width:24px;height:24px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--ink-3);cursor:pointer;font-size:0.875rem}
-.para .ops button:hover{background:var(--sunk);color:var(--ink)}
-.para .ops button.bold-on{background:var(--accent-soft);color:var(--accent)}
-.paras-head{display:flex;align-items:baseline;gap:10px;margin:8px 0 6px}
-.paras-head b{font-size:0.8125rem;color:var(--ink-2)}
+/* «История и текущий статус» — блоки общего компонента (/static/blocks.css, решение пользователя 13.10).
+   Свои стили страницы не должны в них протекать: .kind здесь — поле вида брифа (с отступом снизу),
+   а .section h3 — заголовок раздела капителью; внутри блока и редактора это обычный текст. */
+#sec-text .sc-block .kind{margin:0}
+/* «Ваш текст не сохранён» — набранное в редакторе блока, которое не попало в бриф (ревью RC-2026-10-13-8, К-1) */
+.sec-lost{display:grid;gap:6px;margin:0 0 10px;padding:8px 10px;border:1px solid var(--warning,#b26b00);border-radius:8px;background:var(--warning-bg,#fff4e0);font-size:0.875rem}
+.sec-lost q{display:block;max-height:6.5em;overflow:auto;color:var(--ink-2);white-space:pre-wrap}
+.sec-lost .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+#sec-text .sc-block .txt h1,#sec-text .sc-block .txt h2,#sec-text .sc-block .txt h3,
+#sec-text .ql-editor h1,#sec-text .ql-editor h2,#sec-text .ql-editor h3{text-transform:none;letter-spacing:normal;font-weight:650}
 .lesson{display:grid;gap:6px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);margin:0 0 6px;font-size:0.875rem}
 .lesson.proposed{border-color:var(--accent);background:var(--accent-soft)}
 .lesson small{color:var(--ink-3);font-size:0.75rem}
@@ -415,11 +411,9 @@ details.adv .grid2{margin-top:12px}
       </div>
       <div class="section" id="sec-text" hidden>
         <h3>История и текущий статус</h3>
-        <p class="note">Текст собран из справки по правилам. Поправьте абзац прямо здесь — изменение сразу попадёт в документ. Что вы поправили, программа учтёт в правилах на будущее: разовая правка чисел правилом не станет, а повторяющаяся ошибка стиля или структуры — станет.</p>
-        <div class="paras-head"><b>История</b><button class="link" type="button" data-add="history">+ абзац</button></div>
-        <ul class="paras" id="list-history"></ul>
-        <div class="paras-head"><b>Текущий статус</b><button class="link" type="button" data-add="status">+ абзац</button></div>
-        <ul class="paras" id="list-status"></ul>
+        <p class="note" id="sec-text-note">Текст собран из справки по правилам. Нажмите на блок — поправьте прямо здесь: заголовок, список и обычный абзац задают вид абзаца в документе, полужирный уходит в Word, остальное оформление задаёт шаблон брифа. Что вы поправили, программа учтёт в правилах на будущее: разовая правка чисел правилом не станет, а повторяющаяся ошибка стиля или структуры — станет.</p>
+        <div class="sec-lost" id="sec-lost" role="status" hidden></div>
+        <div id="sec-text-blocks"></div>
       </div>
       <div class="section" id="sec-lessons" hidden>
         <h3>Правила из правок</h3>
@@ -610,8 +604,9 @@ details.adv .grid2{margin-top:12px}
 
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
-<script src="vendor/quill.js"></script>
-<script src="vendor/purify.min.js"></script>
+<script src="/static/vendor/quill.js?v=cda74427"></script>
+<script src="/static/vendor/purify.min.js?v=577ff6c7"></script>
+<script src="/static/blocks.js?v=1c78cb92"></script>
 <script>
 const $ = id => document.getElementById(id);
 const state = { me: { portal: false, is_admin: true }, job: null, settings: null, poll: null, tick: null, started: null, lastMode: "auto", types: [], jobInfo: null, docs: [] };
@@ -942,7 +937,7 @@ async function removeDoc(name){
   } catch (e) { toast(e.message, 6000); }
 }
 function setJob(id){
-  if (id !== state.job) { a3stop(); a3say(""); saver.rev = undefined; }   // всё это относилось к прежнему брифу
+  if (id !== state.job) { a3stop(); a3say(""); saver.rev = undefined; dropSectionEditor(); }   // всё это относилось к прежнему брифу
   state.job = id; store.set(id); markActiveHistory();
 }
 
@@ -974,6 +969,7 @@ function updateButtons(){
 async function start(mode){
   if (mode === "auto" && hasResult() &&
       !confirm("Сделать бриф заново? Справка снова уйдёт в Искру (3–5 минут). Отмеченная проблематика и варианты решения сохранятся.")) return;
+  if (!confirmLeaveSections()) return;
   await flushSave();
   state.lastMode = mode;
   try {
@@ -1135,16 +1131,32 @@ function drawLessons(data){
   }
 }
 
-/* ---------- «История» и «Текущий статус»: абзацы правит человек, правки сохраняются сами ----------
-   Поле абзаца — Quill (как сценарий в «Совещании»), а не голая textarea: обычный редактор с полужирным.
-   Списки и заголовки в этом документе — не формат текста, а вид абзаца целиком («¶ / • / H» слева,
-   как и раньше), поэтому Quill здесь разрешает только «жирный» — остальное решает маркер вида.
-   Курсив в «Истории» и цвет цифр в скобках «Текущего статуса» — правило всего блока (build_brief.py),
-   лишний формат внутри Quill его бы только спутал. */
-const KIND_MARK = { p: "¶", bullet: "•", head: "H" };
-const KIND_NEXT = { p: "bullet", bullet: "head", head: "p" };
+/* ---------- «История» и «Текущий статус»: блоки общего компонента, правки сохраняются сами ----------
+   Решение пользователя 13.10: «каждый раздел — отдельным блоком для форматирования, как в модераторе;
+   единый формат; все делаем одинаково». Раздел — карточка WorkspaceBlocks (/static/blocks.js, отдаёт
+   портал) с двумя блоками; нажатие на блок открывает общий редактор Quill с общей панелью.
+   Сервер по-прежнему принимает абзацы [{text, kind, orig, i}] — контракт /api/rebuild не менялся:
+   блок строится из абзацев, а сохранённый блок разбирается обратно в абзацы и сопоставляется
+   с прежними, чтобы правка осталась правкой абзаца (тот же orig/i), а не «всё убрали и написали заново»
+   — иначе у брифа для региона пропали бы привязка правок к собранному тексту, у общего — цитаты.
+   В Word уходят только вид абзаца (обычный · пункт списка · заголовок) и полужирный: курсив «Истории»
+   и синие скобки «Текущего статуса» — правило всего блока (build_brief.py), прочее оформление панели
+   при сохранении снимается, текст остаётся. */
+const SECTION_BLOCKS = [
+  { id: "history", label: "История", bucket: "org" },
+  { id: "status", label: "Текущий статус", bucket: "report" },
+];
+const SECTION_KINDS = ["p", "bullet", "head"];
+const SECTION_NOTE = "Текст собран из справки по правилам. Нажмите на блок — поправьте прямо здесь: заголовок, список "
+  + "и обычный абзац задают вид абзаца в документе, полужирный уходит в Word, остальное оформление задаёт шаблон брифа. "
+  + "Что вы поправили, программа учтёт в правилах на будущее: разовая правка чисел правилом не станет, "
+  + "а повторяющаяся ошибка стиля или структуры — станет.";
 const _PARA_PURIFY_CFG = { ALLOWED_TAGS: ["p", "strong", "b", "br"], ALLOWED_ATTR: [] };
+// state.sections — абзацы разделов ровно в том виде, в каком уйдут на сервер (null — раздела нет)
+const secView = { view: null, ro: null };
+
 function _escHtml(s){ return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function _norm(s){ return String(s || "").replace(/\s+/g, " ").trim(); }
 function _sanitizeParaHtml(html){
   if (typeof DOMPurify === "undefined" || !DOMPurify.isSupported) {
     // DOMPurify не загрузился — никакой разметки: только текст (DOMParser не исполняет скрипты)
@@ -1153,118 +1165,335 @@ function _sanitizeParaHtml(html){
   }
   return DOMPurify.sanitize(String(html || ""), _PARA_PURIFY_CFG);
 }
-// Содержимое поля на сервер и обратно — «сырой» HTML абзаца без внешнего <p>: обычный текст
-// с экранированными спецсимволами и, если абзац правили, вставками <strong>…</strong> для жирного.
-function _paraRaw(q){
-  let html = _sanitizeParaHtml(q.root.innerHTML);
-  html = html.replace(/<p[^>]*>/gi, "").replace(/<\/p>/gi, " ").replace(/<br\s*\/?>/gi, " ");
-  return html.replace(/\s+/g, " ").trim();
+// Плоский текст «сырого» абзаца (текст + <strong>) — для сравнения слов без разметки
+function _rawPlain(raw){
+  const d = new DOMParser().parseFromString("<div>" + String(raw || "") + "</div>", "text/html");
+  return _norm(d.body.textContent);
 }
-// text — из «факты.json»: у неправленого абзаца это обычный текст (нужно экранировать перед показом),
-// у правленого — уже «сырой» HTML в нашем формате (пришёл отсюда же, экранировать второй раз нельзя).
-function _setParaQuill(q, text, manual){
-  const html = manual ? _sanitizeParaHtml(text || "") : _escHtml(text || "");
-  if (q.clipboard && q.clipboard.dangerouslyPasteHTML) q.clipboard.dangerouslyPasteHTML("<p>" + html + "</p>");
-  else q.root.innerHTML = "<p>" + html + "</p>";
+// text абзаца с сервера: у правленого (manual) — «сырой» HTML в нашем формате (текст + <strong>),
+// экранировать второй раз нельзя; у собранного из справки — обычный текст, его экранируем.
+function _itemInline(it){
+  if (!it.manual) return _escHtml(it.text);
+  return _sanitizeParaHtml(it.text).replace(/<\/?p[^>]*>/gi, " ").replace(/<br\s*\/?>/gi, " ")
+    .replace(/[ \t\r\n]+/g, " ").trim();
 }
-function _paraValue(li){
-  if (li._q) return _paraRaw(li._q);
-  const ta = li.querySelector("textarea");                 // фолбэк, если библиотека не загрузилась
-  return ta ? _escHtml(ta.value.trim()) : "";
+function _itemPlain(it){ return it.manual ? _rawPlain(it.text) : _norm(it.text); }
+
+// Абзацы раздела → HTML блока: p → <p>, bullet → <li> (подряд идущие — в одном <ul>), head → <h3>.
+// Убранные абзацы (пустой text) в блок не входят, но остаются в state.sections — для сервера.
+function sectionHtml(items){
+  let out = "", inList = false;
+  for (const it of items || []) {
+    if (!String(it.text || "").trim()) continue;
+    const inner = _itemInline(it);
+    if (it.kind === "bullet") {
+      if (!inList) { out += "<ul>"; inList = true; }
+      out += `<li>${inner}</li>`;
+      continue;
+    }
+    if (inList) { out += "</ul>"; inList = false; }
+    out += it.kind === "head" ? `<h3>${inner}</h3>` : `<p>${inner}</p>`;
+  }
+  return out + (inList ? "</ul>" : "");
+}
+
+// Внутренность абзаца → «сырой» текст: только текст и <strong>…</strong>; остальные теги сняты
+// (текст в них остаётся), <br> — пробел, пробелы схлопнуты так же, как на сервере (clean_sections).
+function _inlineRaw(node){
+  let out = "";
+  const walk = (n, bold) => {
+    for (const c of n.childNodes) {
+      if (c.nodeType === 3) { out += _escHtml(c.nodeValue); continue; }
+      if (c.nodeType !== 1) continue;
+      if (c.tagName === "BR") { out += " "; continue; }
+      if (c.tagName === "UL" || c.tagName === "OL") continue;      // вложенный список — свои абзацы
+      if ((c.tagName === "STRONG" || c.tagName === "B") && !bold) { out += "<strong>"; walk(c, true); out += "</strong>"; }
+      else walk(c, bold);
+    }
+  };
+  walk(node, false);
+  return out.replace(/<strong>([ \t\r\n]+)/g, "$1<strong>").replace(/([ \t\r\n]+)<\/strong>/g, "</strong>$1")
+    .replace(/<\/strong>([ \t\r\n]*)<strong>/g, "$1").replace(/<strong>([ \t\r\n]*)<\/strong>/g, "$1")
+    .replace(/[ \t\r\n]+/g, " ").trim();
+}
+
+// HTML блока (после редактора) → абзацы [{kind, raw}]: пункт списка — bullet, h1–h6 — head,
+// абзац, цитата и прочее — обычный p. Пустые абзацы пропускаются.
+function parseSectionHtml(html){
+  const doc = new DOMParser().parseFromString("<div>" + String(html || "") + "</div>", "text/html");
+  const out = [];
+  const push = (kind, node) => { const raw = _inlineRaw(node); if (_rawPlain(raw)) out.push({ kind, raw }); };
+  const BLOCK = /^(P|DIV|H[1-6]|UL|OL|LI|BLOCKQUOTE|PRE)$/;
+  let loose = null;                      // текст вне абзаца — один обычный абзац
+  const flush = () => { if (loose) { push("p", loose); loose = null; } };
+  const walk = parent => {
+    for (const n of [...parent.childNodes]) {
+      if (n.nodeType !== 1 || !BLOCK.test(n.tagName)) {
+        if (n.nodeType === 3 && !n.nodeValue.trim() && !loose) continue;
+        (loose = loose || doc.createElement("p")).appendChild(n.cloneNode(true));
+        continue;
+      }
+      flush();
+      const t = n.tagName;
+      if (t === "UL" || t === "OL") walk(n);
+      else if (t === "LI") { push("bullet", n); for (const sub of n.querySelectorAll(":scope > ul, :scope > ol")) walk(sub); }
+      else if (/^H[1-6]$/.test(t)) push("head", n);
+      else if ((t === "DIV" || t === "BLOCKQUOTE") && n.querySelector("p, div, h1, h2, h3, h4, h5, h6, ul, ol, li, blockquote, pre")) walk(n);
+      else push("p", n);
+    }
+    flush();
+  };
+  walk(doc.body.firstElementChild);
+  return out;
+}
+
+// Текст абзаца для отправки: вернули слова собранного абзаца без полужирного — снова собранный текст
+// (не правка); иначе — «сырой» текст с экрана, абзац помечается правленым.
+function _keptText(o, p){
+  const bold = /<strong>/i.test(p.raw), plain = _rawPlain(p.raw);
+  if (!bold && o.orig && plain === _norm(o.orig)) return { text: o.orig, manual: false };
+  if (!bold && !o.manual && String(o.text || "").trim() && plain === _norm(o.text)) return { text: o.text, manual: false };
+  if (o.manual && p.raw === _itemInline(o)) return { text: o.text, manual: true };
+  return { text: p.raw, manual: true };
+}
+
+/* Сохранённый блок → абзацы раздела. prev — абзацы, из которых строился блок (вместе с убранными),
+   paras — абзацы с экрана. 1) Точные совпадения по плоскому тексту (каждый прежний — не больше одного
+   раза; убранный узнаётся по собранному тексту и возвращается) — тот же абзац, вид — новый.
+   2) Между соседними совпадениями несовпавшие новые и прежние спариваются по порядку — это правка
+   (текст новый, orig/i прежние); когда одних больше, чем других, пара выбирается по общим словам
+   (порядок при этом не нарушается): убрали первый абзац и поправили второй — правкой станет второй. 3) Оставшиеся прежние — убраны (text "", orig/i сохранены: для брифа
+   по региону это «убрать абзац», у общего брифа он просто пропадёт); оставшиеся новые — добавлены
+   (orig "", без i). Порядок — с экрана; убранные стоят на прежнем месте относительно соседей. */
+// Слова абзаца — для выбора пары при правке (доля общих слов, 0…1)
+function _words(s){ return new Set(String(s || "").toLowerCase().match(/[\p{L}\p{N}]+/gu) || []); }
+function _likeness(a, b){
+  const A = _words(a), B = _words(b);
+  if (!A.size || !B.size) return 0;
+  let same = 0;
+  for (const w of A) if (B.has(w)) same++;
+  return same / (A.size + B.size - same);
+}
+// Пары «новый ↔ прежний» по порядку: сколько можно пар, а среди них — с наибольшим сходством слов.
+// Возвращает [[номер нового, номер прежнего]] по возрастанию обоих.
+function _pairInOrder(news, olds){
+  const N = news.length, M = olds.length, W = 1000;          // W: число пар важнее сходства
+  if (!N || !M) return [];
+  const f = Array.from({ length: N + 1 }, () => new Array(M + 1).fill(0));
+  for (let a = 1; a <= N; a++)
+    for (let b = 1; b <= M; b++)
+      f[a][b] = Math.max(f[a - 1][b], f[a][b - 1], f[a - 1][b - 1] + W + _likeness(news[a - 1], olds[b - 1]));
+  const out = [];
+  for (let a = N, b = M; a > 0 && b > 0;) {
+    if (f[a][b] === f[a - 1][b]) a--;
+    else if (f[a][b] === f[a][b - 1]) b--;
+    else { out.push([a - 1, b - 1]); a--; b--; }
+  }
+  return out.reverse();
+}
+
+function mergeSection(prev, paras){
+  const old = (prev || []).map((it, j) => {
+    const gone = !String(it.text || "").trim();
+    return { it, j, gone, key: gone ? _norm(it.orig) : _itemPlain(it) };
+  });
+  const keys = paras.map(p => _rawPlain(p.raw));
+  const match = paras.map(() => -1), used = new Set();
+  keys.forEach((k, n) => {
+    const o = old.find(x => !used.has(x.j) && x.key && x.key === k);
+    if (o) { match[n] = o.j; used.add(o.j); }
+  });
+  let n = 0, before = -1;
+  while (n <= paras.length) {
+    let q = n;
+    while (q < paras.length && match[q] < 0) q++;
+    const after = q < paras.length ? match[q] : old.length;
+    if (q > n && after > before) {
+      const free = old.filter(x => x.j > before && x.j < after && !used.has(x.j) && !x.gone);
+      for (const [t, c] of _pairInOrder(keys.slice(n, q), free.map(x => x.key))) { match[n + t] = free[c].j; used.add(free[c].j); }
+    }
+    if (q < paras.length) before = match[q];
+    n = q + 1;
+  }
+  const res = [], placed = new Set();
+  const removed = o => {
+    const it = o.it;
+    if (!it.orig && typeof it.i !== "number") return;        // свой абзац, ещё не сохранённый, — просто нет
+    res.push({ ...it, text: "", manual: true });
+  };
+  const goneUpTo = j => { for (const o of old) if (o.j < j && !used.has(o.j) && !placed.has(o.j)) { placed.add(o.j); removed(o); } };
+  paras.forEach((p, t) => {
+    const j = match[t];
+    if (j < 0) { res.push({ text: p.raw, kind: p.kind, orig: "", manual: true }); return; }
+    goneUpTo(j);
+    const o = old[j].it;
+    res.push({ ...o, ..._keptText(o, p), kind: p.kind });
+  });
+  goneUpTo(Infinity);
+  return res;
+}
+
+// Кто не правит текст на экране: администратор документы не ведёт (решение пользователя 19.09),
+// руководитель организации только смотрит (ACCESS-SPEC.md, роль chief), а бриф коллеги, открытый
+// вам на «смотреть», — тоже только просмотр. Остальное — «фильтр, а не запрет» (контракт п. 2).
+function sectionsReadOnly(){
+  const me = state.me || {};
+  if (!me.portal) return "";
+  if (me.is_admin) return "Под учётной записью администратора документы не правят — войдите под своей.";
+  if (me.role === "chief") return "Вам бриф открыт для просмотра.";
+  const info = acc.info;
+  if (info && info.folder === state.currentFolder && info.owner && info.owner !== me.login
+      && (info.access || []).some(a => a.login === me.login && a.level === "view"))
+    return `Бриф ведёт ${info.owner_name || info.owner}, вам он открыт для просмотра — править текст нельзя.`;
+  return "";
+}
+/* Открытый редактор принадлежит одному брифу (ревью RC-2026-10-13-8, К-1). Компонент в update() переносит
+   редактор живым, если блок с тем же id есть в новых карточках, поэтому id блока — с ключом брифа
+   («history:<папка>»): у другого брифа такого блока нет, и перенести в него набранное нельзя в принципе.
+   Перед сменой брифа спрашиваем про несохранённую правку (confirmLeaveSections), а всё, что всё же
+   выпало из редактора (бриф стал «только смотреть», раздел исчез), показываем плашкой «Ваш текст не
+   сохранён» — набранное не пропадает молча (onEditLost, как в «Тезисах»). */
+function secKey(){ return String(state.currentFolder || state.job || ""); }
+const secLost = { items: [] };      // [{key, section, label, html}] — набранное, не попавшее в бриф
+function sectionCards(){
+  const sec = state.sections || {}, key = secKey();
+  return [{ id: "sections", title: "История и текущий статус",
+    actions: [{ act: "reset", label: "Вернуть текст из справки", title: "Вернуть обоим блокам текст, собранный из справки" }],
+    blocks: SECTION_BLOCKS.map(b => ({ id: `${b.id}:${key}`, section: b.id, key, label: b.label, bucket: b.bucket,
+                                       html: sectionHtml(sec[b.id]), deletable: false,
+                                       placeholder: "Абзацев нет — нажмите, чтобы написать." })) }];
+}
+function _blockOfId(id){
+  const m = /^(history|status):(.*)$/.exec(String(id || ""));
+  return m ? { section: m[1], key: m[2] } : null;
+}
+// Набранное в редакторе, которое не попало в бриф, — в плашку (пустое и несохранённого нет — ничего)
+function keepLostText(info){
+  if (!info || !info.dirty || !WorkspaceBlocks.textOf(info.html || "").trim()) return;
+  const b = _blockOfId(info.id) || { section: "history", key: "" };
+  const label = (SECTION_BLOCKS.find(x => x.id === b.section) || {}).label || "Раздел";
+  secLost.items = secLost.items.filter(x => !(x.key === b.key && x.section === b.section));
+  secLost.items.push({ key: b.key, section: b.section, label, html: info.html });
+  drawLostText();
+  if ($("sec-text").hidden || b.key !== secKey())
+    toast(`Ваш текст в блоке «${label}» не сохранён — он ждёт в разделе «История и текущий статус» того брифа.`, 8000);
+}
+function drawLostText(){
+  const box = $("sec-lost"); box.innerHTML = "";
+  const mine = secLost.items.filter(x => x.key === secKey());
+  box.hidden = !mine.length;
+  for (const it of mine) {
+    const el = document.createElement("div");
+    const head = document.createElement("b"); head.textContent = `Ваш текст в блоке «${it.label}» не сохранён`;
+    const q = document.createElement("q"); q.textContent = WorkspaceBlocks.textOf(it.html);
+    const row = document.createElement("div"); row.className = "row";
+    const btn = (label, fn, cls) => { const b = document.createElement("button"); b.type = "button"; b.className = "btn " + (cls || ""); b.textContent = label; b.onclick = fn; row.appendChild(b); return b; };
+    const drop = () => { secLost.items = secLost.items.filter(x => x !== it); drawLostText(); };
+    const back = btn("Вернуть в редактор", () => {
+      const v = secView.view;
+      if (!v || sectionsReadOnly() || (v.isDirty() && v.editing() !== `${it.section}:${it.key}`)) {
+        toast("Сначала сохраните или отмените правку в открытом блоке.", 6000); return;
+      }
+      if (v.open(`${it.section}:${it.key}`, it.html) !== false) drop();
+    }, "primary");
+    back.hidden = !!sectionsReadOnly() || !secView.view;
+    btn("Скопировать текст", async () => {
+      try { await navigator.clipboard.writeText(q.textContent); toast("Текст скопирован."); }
+      catch { const r = document.createRange(); r.selectNodeContents(q); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast("Выделите и скопируйте текст (Ctrl+C)."); }
+    });
+    btn("Отбросить", drop);
+    el.append(head, q, row);
+    box.appendChild(el);
+  }
+}
+// Уйти с брифа (другой бриф, «Новый бриф», «Сделать заново»): несохранённая правка в блоке — спросить;
+// отказ — остаёмся (false). Согласие или правки нет — редактор закрываем до перерисовки.
+function confirmLeaveSections(){
+  const v = secView.view;
+  if (!v || !v.editing()) return true;
+  if (v.isDirty() && !confirm("В разделе «История и текущий статус» есть несохранённая правка — уйти без сохранения?")) return false;
+  v.close();
+  return true;
+}
+// Страховка: бриф сменился мимо confirmLeaveSections (сервер начал новое задание, опрос) — редактор
+// закрываем, набранное — в плашку прежнего брифа
+function dropSectionEditor(){
+  const v = secView.view;
+  if (!v || !v.editing()) return;
+  const info = { id: v.editing(), html: v.html(), dirty: v.isDirty() };
+  v.close();
+  keepLostText(info);
+}
+function drawSectionBlocks(){
+  const box = $("sec-text-blocks");
+  const why = sectionsReadOnly(), ro = !!why;
+  $("sec-text-note").textContent = why ? `${why} Текст собран из справки по правилам.` : SECTION_NOTE;
+  if (typeof WorkspaceBlocks === "undefined") {      // общий компонент отдаёт портал; нет его — только текст
+    box.innerHTML = sectionCards()[0].blocks.map(b => `<p><b>${_escHtml(b.label)}</b></p>${b.html}`).join("")
+      + '<p class="hint">Редактор блоков не загрузился — обновите страницу.</p>';
+    return;
+  }
+  if (secView.view && secView.ro !== ro && secView.view.setReadOnly) {   // режим меняется без нового подключения
+    secView.view.setReadOnly(ro); secView.ro = ro;
+  }
+  if (secView.view && secView.ro === ro) { secView.view.update(sectionCards()); drawLostText(); return; }
+  // компонент без setReadOnly: подключаем заново на свежем узле — обработчики нажатий прежнего
+  // подключения остаются на старом корне и до нового не дотянутся
+  if (secView.view) secView.view.destroy();
+  const fresh = document.createElement("div"); fresh.id = "sec-text-blocks"; box.replaceWith(fresh);
+  secView.ro = ro;
+  setTimeout(drawLostText, 0);
+  secView.view = WorkspaceBlocks.mount(fresh, {
+    cards: sectionCards(), readOnly: ro,
+    onSave: saveSectionBlock,
+    onAction: ({ act }) => { if (act === "reset") resetSections(); },
+    onEditLost: keepLostText,
+  });
+}
+function saveSectionBlock({ block, html }){
+  if (!state.sections) return Promise.reject(new Error("Раздела нет — обновите страницу."));
+  // правка пишется только в свой бриф (К-1): блок другого брифа сюда попасть не должен
+  if (block.key !== secKey() || !SECTION_BLOCKS.some(b => b.id === block.section))
+    return Promise.reject(new Error("Этот блок относится к другому брифу — текст не сохранён."));
+  state.sections[block.section] = mergeSection(state.sections[block.section] || [], parseSectionHtml(html));
+  // компонент закроет редактор с тем, что набрано; следом показываем то, что уйдёт в Word
+  // (оформление панели, кроме вида абзаца и полужирного, снято)
+  setTimeout(drawSectionBlocks, 0);
+  scheduleSave(0);
+  return true;
+}
+function resetSections(){
+  if (!state.sections) return;
+  const topic = SECTION_BLOCKS.some(b => (state.sections[b.id] || []).some(it => typeof it.i === "number"));
+  if (!confirm("Вернуть «Истории» и «Текущему статусу» текст, собранный из справки? "
+      + (topic ? "Абзацы, которые вы правили или добавили, будут убраны." : "Ваши правки и добавленные абзацы пропадут."))) return;
+  if (secView.view && secView.view.editing()) secView.view.close();   // набранное не ляжет поверх сброса
+  for (const b of SECTION_BLOCKS) {
+    state.sections[b.id] = (state.sections[b.id] || []).flatMap(it => {
+      if (it.orig) return [{ ...it, text: it.orig, kind: it.orig_kind || it.kind, manual: false }];
+      if (typeof it.i === "number" && !it.manual && String(it.text || "").trim()) return [it];
+      return [];
+    });
+  }
+  drawSectionBlocks();
+  scheduleSave(0);
 }
 function renderSections(r){
   const sec = r.sections;
   $("sec-text").hidden = r.engine === "summary" || !sec;
-  if ($("sec-text").hidden) return;
-  for (const name of ["history", "status"]) {
-    const ul = $("list-" + name); ul.innerHTML = "";
-    for (const s of sec[name] || []) addPara(ul, s);
-    if (!(sec[name] || []).length) { const el = document.createElement("li"); el.className = "hint"; el.textContent = "Абзацев нет — добавьте, если нужно."; ul.appendChild(el); }
-  }
+  if ($("sec-text").hidden) { dropSectionEditor(); state.sections = null; return; }
+  state.sections = {};
+  for (const b of SECTION_BLOCKS) state.sections[b.id] = (sec[b.id] || []).map(it => ({ ...it }));
+  drawSectionBlocks();
 }
-function addPara(ul, s){
-  const li = document.createElement("li"); li.className = "para " + (s.kind || "p");
-  li.dataset.orig = s.orig || ""; li.dataset.kind = s.kind || "p";
-  if (typeof s.i === "number") li.dataset.i = s.i;
-  const kind = document.createElement("span"); kind.className = "kind"; kind.title = "Вид абзаца: обычный, маркер, заголовок";
-  kind.textContent = KIND_MARK[li.dataset.kind];
-  kind.onclick = () => {
-    li.classList.remove(li.dataset.kind); li.dataset.kind = KIND_NEXT[li.dataset.kind]; li.classList.add(li.dataset.kind);
-    kind.textContent = KIND_MARK[li.dataset.kind]; bold.hidden = li.dataset.kind === "head";
-    markPara(li); scheduleSave(0);
-  };
-  const rte = document.createElement("div"); rte.className = "rte";
-  const rteBox = document.createElement("div"); rte.appendChild(rteBox);
-  const ops = document.createElement("div"); ops.className = "ops";
-  const bold = document.createElement("button"); bold.type = "button"; bold.textContent = "Ж";
-  bold.title = "Полужирный"; bold.setAttribute("aria-label", "Полужирный"); bold.hidden = li.dataset.kind === "head";
-  bold.onmousedown = e => e.preventDefault();               // не терять выделение текста при клике по кнопке
-  bold.onclick = () => { if (li._q) li._q.format("bold", !li._q.getFormat().bold); };
-  const del = document.createElement("button"); del.type = "button"; del.textContent = "×"; del.title = "Убрать абзац из документа";
-  del.setAttribute("aria-label", "Убрать абзац");
-  del.onclick = () => {
-    if (!li.dataset.orig) { li.remove(); scheduleSave(0); return; }
-    li.classList.toggle("gone");
-    if (li._q) li._q.enable(!li.classList.contains("gone"));
-    markPara(li); scheduleSave(0);
-  };
-  const back = document.createElement("button"); back.type = "button"; back.className = "back"; back.textContent = "↺";
-  back.title = "Вернуть текст, собранный из справки"; back.setAttribute("aria-label", "Вернуть собранный текст");
-  back.onclick = () => {
-    if (li._q) { _setParaQuill(li._q, li.dataset.orig, false); li._q.enable(true); }
-    li.classList.remove("gone"); markPara(li); scheduleSave(0);
-  };
-  ops.append(bold, del, back);
-  li.append(kind, rte, ops);
-  ul.appendChild(li);
-  if (typeof Quill !== "undefined") {
-    const q = new Quill(rteBox, {
-      formats: ["bold"],
-      modules: { toolbar: false, keyboard: { bindings: { enter: { key: 13, handler: () => {} } } } },
-      placeholder: "Текст абзаца…"
-    });
-    li._q = q;
-    _setParaQuill(q, s.text || "", !!s.manual);
-    if (li.classList.contains("gone")) q.enable(false);
-    q.on("text-change", () => { markPara(li); scheduleSave(); });
-    q.on("selection-change", range => { if (range) bold.classList.toggle("bold-on", !!q.getFormat(range).bold); });
-  } else {
-    // фолбэк, если библиотека не загрузилась — обычное поле без форматирования
-    const ta = document.createElement("textarea"); ta.rows = 1; ta.value = s.text || "";
-    ta.setAttribute("aria-label", "Текст абзаца");
-    ta.oninput = () => { autosize(ta); markPara(li); scheduleSave(); };
-    rteBox.replaceWith(ta);
-    bold.hidden = true;
-  }
-  markPara(li);
-  return li;
-}
-function markPara(li){
-  const back = li.querySelector(".ops .back");
-  const raw = _paraValue(li);
-  const changed = li.classList.contains("gone") || !li.dataset.orig
-    || _paraPlainText(raw) !== li.dataset.orig || /<(strong|b)[ >]/i.test(raw);
-  li.classList.toggle("manual", changed);
-  back.hidden = !li.dataset.orig || !changed;
-}
-function _paraPlainText(raw){
-  const d = document.createElement("div"); d.innerHTML = raw;
-  return (d.textContent || "").trim();
-}
-document.querySelectorAll("[data-add]").forEach(b => b.onclick = () => {
-  const ul = $("list-" + b.dataset.add);
-  const hint = ul.querySelector("li.hint"); if (hint) hint.remove();
-  const li = addPara(ul, { text: "", kind: "p", orig: "" });
-  (li._q ? li._q.root : li.querySelector("textarea")).focus();
-});
 function collectSections(){
-  if ($("sec-text").hidden) return undefined;
+  if ($("sec-text").hidden || !state.sections) return undefined;
   const out = {};
-  for (const name of ["history", "status"]) {
-    out[name] = [...$("list-" + name).querySelectorAll("li.para")].map(li => {
-      const row = { text: li.classList.contains("gone") ? "" : _paraValue(li),
-                    kind: li.dataset.kind, orig: li.dataset.orig };
-      if (li.dataset.i !== undefined) row.i = Number(li.dataset.i);
+  for (const b of SECTION_BLOCKS) {
+    out[b.id] = (state.sections[b.id] || []).map(it => {
+      const row = { text: String(it.text || ""), kind: SECTION_KINDS.includes(it.kind) ? it.kind : "p",
+                    orig: String(it.orig || "") };
+      if (typeof it.i === "number") row.i = it.i;
       return row;
     });
   }
@@ -1578,7 +1807,10 @@ window.addEventListener("pagehide", () => {
   if (!isDirty()) return;
   try { navigator.sendBeacon("api/rebuild", new Blob([JSON.stringify({ job_id: state.job, ...collect() })], { type: "application/json" })); } catch {}
 });
-window.addEventListener("beforeunload", e => { if (saver.running) { e.preventDefault(); e.returnValue = ""; } });
+// открытый редактор блока с несохранённым текстом («Сохранить» ещё не нажато) — тоже спросить
+window.addEventListener("beforeunload", e => {
+  if (saver.running || (secView.view && secView.view.isDirty())) { e.preventDefault(); e.returnValue = ""; }
+});
 
 // скачивание: сначала дожидаемся сохранения, чтобы в файле было ровно то, что на экране
 for (const id of ["dl-docx", "dl-report", "dl-facts"]) {
@@ -2047,7 +2279,8 @@ function openMergeFiles(){
   jointFrom = "files"; mergeFiles = []; mergeDrag = null;
   $("joint-h").textContent = "Объединить брифы";
   $("joint-lead").textContent = MERGE_LEAD;
-  $("merge-kinds").textContent = `Брифы в Word (.docx), можно сразу несколько — от ${JOINT_MIN} до ${JOINT_MAX}`;
+  $("merge-kinds").textContent = `Брифы в Word (.docx), можно сразу несколько — от ${JOINT_MIN} до ${JOINT_MAX} файлов; `
+    + `файл, в котором уже несколько брифов (прежний сводный), тоже подойдёт — его вопросы встанут по порядку`;
   jointMode(false);
   $("merge-add").hidden = false;
   $("joint-go").textContent = "Объединить";
@@ -2169,7 +2402,8 @@ async function loadAccessLine(){
   $("access-open").hidden = true;
   if (!state.me.portal || !state.currentFolder) return;
   try { acc.info = await api(`api/access?folder=${encodeURIComponent(state.currentFolder)}`); accessLine(acc.info); }
-  catch {}
+  catch { return; }
+  if (state.sections) drawSectionBlocks();   // бриф открыт вам на «смотреть» — блоки только для чтения
 }
 function drawAccess(){
   const info = acc.info, ul = $("access-list"); ul.innerHTML = "";
@@ -2273,6 +2507,7 @@ function markActiveHistory(){
 }
 async function openHistory(it){
   if (isRunning()) { toast("Дождитесь окончания текущей обработки."); return false; }
+  if (it.folder !== state.currentFolder && !confirmLeaveSections()) return false;
   await flushSave();
   try {
     const r = await post("api/open-result", { folder: it.folder });
@@ -2516,6 +2751,7 @@ $("meet-cancel").onclick = () => $("meet-dlg").close();
 /* ---------- новый бриф ---------- */
 async function newBrief(){
   if (isRunning()) { toast("Сейчас идёт обработка — дождитесь её окончания или нажмите «Отменить»."); return; }
+  if (!confirmLeaveSections()) return;
   await flushSave();
   clearTimeout(state.poll); clearInterval(state.tick);
   state.job = null; state.jobInfo = null; state.currentFolder = null; store.set(null);
@@ -2564,6 +2800,7 @@ async function openFromHash(){
   if (jid) {
     if (jid === state.job) return true;
     if (isRunning()) { toast("Дождитесь окончания текущей обработки."); return false; }
+    if (!confirmLeaveSections()) return false;
     await flushSave();
     try { await api(`api/job/${jid}`); }
     catch { toast("Такого задания нет — возможно, его удалили или программу перезапускали."); return false; }

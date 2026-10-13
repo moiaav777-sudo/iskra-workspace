@@ -12,15 +12,8 @@ from urllib.parse import parse_qs, quote, unquote
 APP = Path(__file__).resolve().parent
 sys.path.insert(0, str(APP))          # встроенный Python для Windows не добавляет папку скрипта сам
 
-# «История» и «Текущий статус» правятся в Quill (просьба пользователя 28.09, как в «Совещании»);
-# сам Quill и DOMPurify лежат локально (копия moderator/static/vendor, контракт п. 5б), отдаём их
-# по относительному адресу — списком, а не произвольным путём с диска.
-VENDOR_DIR = APP / "vendor"
-VENDOR_FILES = {
-    "quill.js": "application/javascript; charset=utf-8",
-    "quill.snow.css": "text/css; charset=utf-8",
-    "purify.min.js": "application/javascript; charset=utf-8",
-}
+# «История» и «Текущий статус» — блоки общего компонента (решение пользователя 13.10): Quill, DOMPurify
+# и blocks.js отдаёт портал из /static/, своей копии и маршрута /vendor/ у «Брифа» больше нет.
 
 import build_brief as bb               # noqa: E402
 import build_topic as bt               # noqa: E402
@@ -40,7 +33,8 @@ TRASH = RESULTS / TRASH_NAME      # удалённые брифы: файлы о
 JOINT_NAME = "Сводные"
 JOINT = RESULTS / JOINT_NAME      # сводные брифы: несколько готовых брифов одним документом
 JOINT_FILE = "сводный.json"
-JOINT_MIN, JOINT_MAX = 2, 10      # пользователь 05.10: «три-четыре брифа», запас — до десяти
+JOINT_MIN, JOINT_MAX = 2, 10      # пользователь 05.10: «три-четыре брифа», запас — до десяти (файлов за раз)
+JOINT_MAX_QUESTIONS = 60          # вопросов в одном сводном: файл может нести несколько брифов (пользователь 13.10)
 JOINT_LOCK = threading.Lock()     # сводные собираются по одному: повтор нажатия ждёт и получает готовый
 SETTINGS = ROOT / "settings.json"
 ERROR_LOG = ROOT / "ошибки.log"
@@ -289,6 +283,16 @@ def clean_meeting(data):
             "filed": bool(data.get("filed")), "at": time.time()}
 
 
+# тег, кроме <strong>, <b> и их закрывающих: <em>, <p class=…>, <strong class=…>, </p>, <!-- … -->;
+# перенос и граница абзаца становятся пробелом (слова не слипаются), прочие теги просто снимаются
+_FOREIGN_TAG_RE = re.compile(r"<(?!/?(?:strong|b)\s*>)(/?)([a-zA-Z!?][a-zA-Z0-9]*)[^>]*>", re.IGNORECASE)
+_SPACE_TAGS = {"br", "p", "div", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre"}
+
+
+def _strip_foreign_tags(text):
+    return _FOREIGN_TAG_RE.sub(lambda m: " " if m.group(2).lower() in _SPACE_TAGS else "", text)
+
+
 def clean_sections(sections):
     """Абзацы «Истории» и «Текущего статуса» с экрана: текст, вид абзаца, из какого собранного
     абзаца сделан (orig) или номер блока (i). Блок, которого нет в запросе, не трогается."""
@@ -303,7 +307,11 @@ def clean_sections(sections):
         for it in items[:300]:
             if not isinstance(it, dict):
                 continue
-            row = {"text": re.sub(r"[ \t\r\n]+", " ", str(it.get("text") or "")).strip()[:4000],
+            # разметку экран сводит к тексту и <strong>…</strong> (единый формат блоков, решение
+            # пользователя 13.10); чужую разметку снимаем и здесь, иначе в документ ушли бы
+            # литеральные теги: human_parts понимает только <strong>/<b>
+            text = _strip_foreign_tags(str(it.get("text") or ""))
+            row = {"text": re.sub(r"[ \t\r\n]+", " ", text).strip()[:4000],
                    "kind": it.get("kind") if it.get("kind") in bb.SECTION_KINDS else "p",
                    "orig": re.sub(r"[ \t\r\n]+", " ", str(it.get("orig") or "")).strip()[:4000]}
             if isinstance(it.get("i"), int) and not isinstance(it.get("i"), bool) and 0 <= it["i"] < 1000:
@@ -941,8 +949,12 @@ def make_merge(files, title, author):
     if sum(len(d) for _, d in got) > MERGE_TOTAL_BYTES:
         raise ValueError(f"брифы вместе больше {MERGE_TOTAL_BYTES // (1024 * 1024)} МБ — "
                          "объедините их в два приёма")
-    for n, data in got:
-        bj.read_brief(n, data)                     # проверка до того, как заводить папку
+    # проверка до того, как заводить папку; файл с несколькими брифами (прежний сводный) даёт
+    # несколько вопросов — считаем их все (пользователь 13.10: «в документе 10 брифов — должен появиться 11-й»)
+    questions = sum(len(bj.read_briefs(n, data)) for n, data in got)
+    if questions > JOINT_MAX_QUESTIONS:
+        raise ValueError(f"в приложенных файлах {questions} брифов, а в один сводный помещается не больше "
+                         f"{JOINT_MAX_QUESTIONS} — уберите лишние файлы")
     title = one_line(title)[:200] or "Бриф к совещанию"
     h = hashlib.sha256(title.encode("utf8"))
     for _, data in got:
@@ -1044,8 +1056,12 @@ def rebuild(job, problems, solutions, target=None, selection=None, talks=None, s
             if engine(job) == "region":
                 # факты не трогаются: правки лежат отдельно и привязаны к тексту собранного абзаца
                 edits = dict(F.get("edits") or {}) if isinstance(F.get("edits"), dict) else {}
+                # вид собранного абзаца — из прошлой сборки: смена вида на экране тоже правка
+                shown = (job.get("result") or {}).get("sections") or {}
                 for name, items in sections.items():
-                    edits[name] = bb.edits_from_sections(items)
+                    kinds = {" ".join(str(x.get("orig") or "").split()): x.get("orig_kind") or x.get("kind")
+                             for x in shown.get(name) or [] if isinstance(x, dict) and x.get("orig")}
+                    edits[name] = bb.edits_from_sections(items, kinds)
                 F["edits"] = edits
             elif engine(job) == "topic":
                 bt.apply_sections(F, sections)
@@ -1769,21 +1785,14 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("X-Frame-Options", "DENY")
             self.end_headers()
             return self.wfile.write(data)
-        if path.startswith("/vendor/") and path[len("/vendor/"):] in VENDOR_FILES:
-            name = path[len("/vendor/"):]
-            data = (VENDOR_DIR / name).read_bytes()
-            self.send_response(200)
-            self.send_header("Content-Type", VENDOR_FILES[name])
-            self.send_header("Content-Length", str(len(data)))
-            self.send_header("Cache-Control", "public, max-age=604800")   # библиотека, не меняется между правками
-            self.end_headers()
-            return self.wfile.write(data)
         if path == "/api/ping":
             return self.send_json({"app": APP_ID})
         if path == "/api/whoami":
             u = self.user
             return self.send_json({"portal": bool(u), "login": u["login"] if u else "", "name": u["name"] if u else "",
                                    "is_admin": u["is_admin"] if u else True,
+                                   # роль нужна экрану: руководитель организации (chief) только смотрит
+                                   "role": u.get("role", "") if u else "",
                                    "a3": A3_LINKS if u else None,
                                    "meeting": MEETING_LINKS if u else None,
                                    "people": PEOPLE_LINKS if u else None})

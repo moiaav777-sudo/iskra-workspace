@@ -227,11 +227,14 @@ class Thesis:
 
         Пункт узнаётся по месту и тексту: тот же текст на том же месте — тот же id,
         чтобы места под цифру (`gaps`) не отвязывались от своих пунктов при каждой правке.
+
+        Заголовки — это разделы, а не пункты (решение пользователя 13.10, единый формат
+        блоков): их не произносят, в счёт слов и минут они не идут, в «Совещание» не уезжают.
         """
         self.html = normalize_markers(richtext.clean(html))
         old = list(self.bullets)
         fresh = [Bullet(text=block.text, emphasis=richtext.emphasis_of(block))
-                 for block in richtext.blocks(self.html)]
+                 for block in richtext.blocks(self.html) if block.kind != "h"]
         used: set[str] = set()
         matched: dict[int, Bullet] = {}
         # сначала — тот же текст (пункт переставили или поправили соседа)
@@ -250,13 +253,19 @@ class Thesis:
             fresh[index].id, fresh[index].part = match.id, match.part
         self.bullets = fresh
 
+    def headings(self) -> list[str]:
+        """Названия разделов (заголовки текста) по порядку — в Word они уходят, поэтому
+        слова в них проверяются так же, как в пунктах."""
+        return [b.text for b in richtext.blocks(self.html) if b.kind == "h" and b.text]
+
     @property
     def words(self) -> int:
         return sum(b.words for b in self.bullets)
 
     @property
     def has_text(self) -> bool:
-        """Пустой буллит — заготовка, а не текст: выгружать и передавать нечего."""
+        """Пустой буллит — заготовка, а не текст: выгружать и передавать нечего.
+        Считаются только пункты: одни названия разделов — ещё не текст (13.10)."""
         return any(b.text.strip() for b in self.bullets)
 
     @property
@@ -292,13 +301,19 @@ class Thesis:
                          if not latin.mixed(w) or latin.hybrid(w)]
                 if words:
                     out["gap:" + gap.id] = words
+        for index, title in enumerate(self.headings()):
+            words = [w for w in latin.foreign(title, known)
+                     if not latin.mixed(w) or latin.hybrid(w)]
+            if words:
+                out[f"head:{index}"] = words
         return out
 
     def texts(self) -> list[str]:
         """Всё, что уходит в документ и в совещание: тезисы и недостающее, а ещё тема
-        (имя файла Word) и место выступления (название совещания) — ревьюер RC-17, П2."""
+        (имя файла Word) и место выступления (название совещания) — ревьюер RC-17, П2.
+        Названия разделов тоже: они идут в Word (13.10)."""
         return ([self.topic, self.event] + [b.text for b in self.bullets]
-                + [g.suggestion for g in self.gaps if not g.resolved])
+                + [g.suggestion for g in self.gaps if not g.resolved] + self.headings())
 
     def mixed_words(self) -> list[dict]:
         """Слова, где русские и латинские буквы вперемешку и однозначно их не исправить
@@ -383,11 +398,19 @@ def sync_gaps_from_text(thesis: Thesis) -> None:
 
     Маркер убрали из буллита руками — место закрыто; появился новый — заводим запись,
     чтобы он попал и в блок «Что необходимо доуточнить», и в проверку перед выгрузкой.
+
+    Метка в названии раздела — тоже место под цифру (ревью RC-2026-10-13-3, Н-3): заголовок
+    не пункт, но в Word он уходит с красной меткой, значит, и в «Что необходимо доуточнить».
+    Привязка — «head:<название>»: по названию, а не по номеру, чтобы перестановка разделов
+    не закрывала и не заводила места заново.
     """
     seen: set[tuple[str, str, str]] = set()
     for bullet in thesis.bullets:
         for marker, suggestion in bullet.markers():
             seen.add((bullet.id, marker, suggestion))
+    for title in thesis.headings():
+        for m in MARKER_RE.finditer(title):
+            seen.add(("head:" + title, marker_name(m.group(1)), (m.group(2) or "").strip()))
     known = {(g.bullet_id, g.marker, g.suggestion) for g in thesis.gaps if not g.resolved}
     for key in seen - known:
         bullet_id, marker, suggestion = key

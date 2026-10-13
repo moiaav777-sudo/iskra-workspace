@@ -31,6 +31,8 @@ TEMPLATE = Path(__file__).resolve().parent / "template.docx"
 BULLET_PPR = Path(__file__).resolve().parent / "template_bullet.xml"
 
 SIZE_PT = 16          # кегль основного текста, как в образце
+# заголовки разделов: полужирные и крупнее текста — h1 на 4 пт, h2 на 2 пт, h3 на 1 пт (13.10)
+HEAD_PLUS = {1: 4, 2: 2, 3: 1}
 MARKER_COLOR = "C00000"  # красный: недостающая фактура
 
 GAPS_TITLE = "ЧТО НЕОБХОДИМО ДОУТОЧНИТЬ"
@@ -100,6 +102,11 @@ def _write_block(doc, block) -> None:
             para.paragraph_format.left_indent = Pt(36 + 18 * block.level)
     else:
         para = _plain_paragraph(doc)
+        if block.kind == "h":
+            # название раздела (решение пользователя 13.10: разделы — заголовками): отбивка
+            # сверху и не отрывается от своего текста на следующую страницу
+            para.paragraph_format.space_before = Pt(12)
+            para.paragraph_format.keep_with_next = True
         if block.kind == "quote":
             para.paragraph_format.left_indent = Pt(36)
         elif block.kind == "p" and block.level:
@@ -114,7 +121,7 @@ def _write_block(doc, block) -> None:
             if not chunk:
                 continue
             piece = para.add_run(chunk)
-            piece.font.size = Pt(SIZE_PT + (2 if block.kind == "h" else 0))
+            piece.font.size = Pt(SIZE_PT + (HEAD_PLUS.get(block.head, 2) if block.kind == "h" else 0))
             piece.bold = run.bold or block.kind == "h" or None
             piece.italic = run.italic or block.kind == "quote" or None
             if run.underline or run.href:
