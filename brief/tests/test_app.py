@@ -1000,8 +1000,11 @@ class TestServer(unittest.TestCase):
         http("POST", "/api/manual", {"job_id": up["job_id"], "answer": FACTS_RAW["алтай"]})
         j = wait_job(up["job_id"])
         self.assertEqual(j["state"], "done")
-        self.assertEqual(j["result"]["problems"], [])
         sig = j["result"]["signals"]
+        # новый бриф сразу со всеми предложениями (решение пользователя 14.10; заполняет сервер при сборке)
+        self.assertTrue(sig)
+        self.assertEqual(j["result"]["problems"], sig)
+        self.assertEqual(j["result"]["selection"], {"picks": [], "own": sig})
         problems = [sig[0], "Своя проблема с «кавычками»"]
         solutions = ["Рекомендовать Правительству Республики Алтай:", "проработать финансирование;", "ускорить стройку."]
         code, r, _ = http("POST", "/api/rebuild", {"job_id": up["job_id"], "problems": problems, "solutions": solutions})
@@ -2057,12 +2060,16 @@ class TestGeneral(unittest.TestCase):
         self.assertGreater(r["facts_total"], 0)
         self.assertEqual(r["unverified"], [], r["unverified"])
         self.assertEqual(len(r["signals"]), 3); self.assertEqual(len(r["solution_signals"]), 2)
-        self.assertEqual(r["problems"], []); self.assertEqual(r["solutions"], [])   # пока куратор не отметил
+        # новый бриф сразу со всеми предложениями (решение пользователя 14.10): куратор оставит нужные
+        self.assertEqual(r["problems"], r["signals"]); self.assertEqual(r["solutions"], r["solution_signals"])
+        self.assertEqual(r["selection"], {"picks": [], "own": r["signals"], "sol_picks": [], "sol_own": r["solution_signals"]})
         body = Mock.requests[-1]["body"]["messages"][-1]["content"]
         self.assertIn("Документ 1.", body); self.assertIn("Документ 2.", body)      # оба документа ушли в запрос
         docx = plain(docx_xml(Path(server.JOBS[jid]["result"]["docx"])))
         self.assertIn("О нагрузке учителей", docx)
-        self.assertIn("Отсутствует.", docx); self.assertIn("Не требуются.", docx)
+        self.assertNotIn("Отсутствует.", docx); self.assertNotIn("Не требуются.", docx)
+        flat = lambda x: re.sub(r"\s+", " ", x).replace("\xa0", " ").strip()
+        self.assertIn(flat(r["signals"][0]), docx); self.assertIn(flat(r["solution_signals"][0]), docx)
         # отчёт проверки перечисляет приложенные документы
         report = Path(server.JOBS[jid]["result"]["report"]).read_text(encoding="utf8")
         self.assertIn(REGIONS["алтай"].name, report)

@@ -263,11 +263,17 @@ def brief_type(job_or_id):
     return BRIEF_TYPES.get(tid or DEFAULT_TYPE) or BRIEF_TYPES[DEFAULT_TYPE]
 
 
-def clean_lines(v, limit=50):
+# Пределы пунктов «Проблематики» и «Вариантов решения» с экрана. С 14.10 в блок сразу входят все
+# предложения из справки (у брифа для региона их бывает больше полусотни — по объекту стройки на пункт),
+# и весь выбор приходит в selection.own одним списком: 50 пунктов по 2000 знаков резали бы его молча.
+LINES_MAX, LINE_CHARS = 200, 4000
+
+
+def clean_lines(v, limit=LINES_MAX):
     """Строки от пользователя: обычные пробелы и переносы схлопываются, неразрывные пробелы сохраняются."""
     if not isinstance(v, list):
         return []
-    return [re.sub(r"[ \t\r\n]+", " ", x).strip()[:2000] for x in v if isinstance(x, str) and x.strip()][:limit]
+    return [re.sub(r"[ \t\r\n]+", " ", x).strip()[:LINE_CHARS] for x in v if isinstance(x, str) and x.strip()][:limit]
 
 
 def clean_meeting(data):
@@ -362,7 +368,9 @@ def clean_talks(talks):
 
 def clean_selection(sel):
     """Что отмечено на экране: номера кандидатов с (возможно, поправленным) текстом и свои формулировки.
-    У общего брифа кандидаты есть и в «Вариантах решения» — они приходят отдельными списками."""
+    У общего брифа кандидаты есть и в «Вариантах решения» — они приходят отдельными списками.
+    С 14.10 экран шлёт picks/sol_picks пустыми: «Проблематика» и «Варианты решения» — блоки, весь их текст
+    приходит в own/sol_own (галочки по номерам остаются только у старых брифов, сервер их по-прежнему принимает)."""
     if not isinstance(sel, dict):
         return None
 
@@ -377,9 +385,13 @@ def clean_selection(sel):
 
     out = {"picks": picks_of("picks"), "own": clean_lines(sel.get("own"))}
     # у брифа для региона кандидатов в решения нет — не засоряем ими старые задания
-    for key, value in (("sol_picks", picks_of("sol_picks")), ("sol_own", clean_lines(sel.get("sol_own")))):
-        if value:
-            out[key] = value
+    sol_picks, sol_own = picks_of("sol_picks"), clean_lines(sel.get("sol_own"))
+    if sol_own:
+        # sol_picks — и пустой: экран до 14.10 (откат) без него сопоставлял бы решения с кандидатами по тексту
+        # и при первом сохранении переставил бы их — вводная с двоеточием уехала бы вниз (ревью RC-2026-10-14-1, Н-3)
+        out["sol_picks"], out["sol_own"] = sol_picks, sol_own
+    elif sol_picks:
+        out["sol_picks"] = sol_picks
     return out
 
 
@@ -1181,6 +1193,8 @@ def unverified_lines(ck):
 def finish_build(jid, run_id, F, raw_answers):
     job = JOBS[jid]
     d = Path(job["dir"])
+    # первая сборка брифа (фактов ещё нет) — проблематика и решения собираются ниже из всех предложений
+    first_build = not (d / "факты.json").exists()
     # повторная обработка той же справки не стирает выбранную пользователем проблематику и варианты решения
     try:
         old = json.loads((d / "факты.json").read_text(encoding="utf8"))
@@ -1204,6 +1218,8 @@ def finish_build(jid, run_id, F, raw_answers):
     stage = d / STAGE_DIR
     stage.mkdir(exist_ok=True)
     res = build_fn(job, F)(stage / name)
+    if first_build and fill_from_signals(job, F, res):
+        res = build_fn(job, F)(stage / name)       # документ сразу со всеми предложениями
     if not still_current(jid, run_id):
         pages.forget(stage / name)       # и уточнение номеров от Word этот документ не тронет
         clear_stage(d)                   # отменили или запустили заново — на месте ничего не трогаем
@@ -1242,6 +1258,24 @@ def finish_build(jid, run_id, F, raw_answers):
     for f in (FACTS_BACKUP, BUILD_JOURNAL):          # бриф записан — откатывать больше нечего
         (d / f).unlink(missing_ok=True)
     clear_stage(d)
+    return True
+
+
+def fill_from_signals(job, F, res):
+    """Новый бриф (решение пользователя 14.10): в «Проблематику» и «Варианты решения» сразу входят все
+    предложения из справки, куратор оставляет нужные в блоках на экране. Заполняет сервер при первой сборке,
+    а не экран при открытии (ревью RC-2026-10-14-1, К-1/К-2): готовые брифы, где куратор ничего не отметил
+    («Отсутствует»), открытие и скачивание не меняют, и в чужой бриф без действия человека ничего не пишется.
+    «Сделать заново» сюда не попадает — прежняя проблематика переносится как есть (finish_build).
+    Предложения известны только после сборки (у брифа для региона часть считает сама сборка), поэтому
+    True — F заполнен и документ надо собрать ещё раз."""
+    if engine(job) == "summary" or F.get("problems") or F.get("solutions") or F.get("ui_selection"):
+        return False
+    problems, solutions = clean_lines(res.get("signals")), clean_lines(res.get("solution_signals"))
+    if not problems and not solutions:
+        return False
+    F["problems"], F["solutions"] = problems, solutions
+    F["ui_selection"] = clean_selection({"picks": [], "own": problems, "sol_picks": [], "sol_own": solutions})
     return True
 
 
@@ -2149,7 +2183,7 @@ class Handler(BaseHTTPRequestHandler):
                                         Path(job["dir"]).name, self.user["login"] if self.user else "",
                                         prompt=brief_type(job)["prompt"])
                 if res["problems"] != old_p or res["solutions"] != old_s:
-                    changed = (diff_lines("Проблематика", old_p, res["problems"])
+                    changed += (diff_lines("Проблематика", old_p, res["problems"])
                                + diff_lines("Варианты решения", old_s, res["solutions"]))
                 # правка шапок докладов тоже меняет документ, значит идёт в журнал
                 changed += talks_diff(old_t, res.get("talks") or [])

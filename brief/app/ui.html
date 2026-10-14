@@ -139,16 +139,12 @@ textarea::placeholder{color:var(--ink-3);font-style:italic;opacity:.8}
 .save-state{font-size:0.8125rem;padding:5px 12px;border-radius:999px;background:var(--ok-soft);color:var(--ok)}
 .save-state.busy{background:var(--accent-soft);color:var(--accent)}
 .save-state.bad{background:var(--bad-soft);color:var(--bad)}
-.picks{margin:0 0 14px;padding:0;list-style:none;display:grid;gap:6px}
-.pick{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)}
-.pick.on{border-color:var(--accent);background:var(--accent-soft)}
-.pick input[type=checkbox]{margin-top:6px;width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
-.pick textarea{border:0;background:transparent;min-height:0;padding:3px 0;font:0.875rem/1.45 var(--font);resize:none;overflow:hidden}
-.pick textarea:focus{outline:none;box-shadow:inset 0 -1px 0 var(--accent)}
-/* «История и текущий статус» — блоки общего компонента (/static/blocks.css, решение пользователя 13.10).
+/* «История», «Текущий статус», «Проблематика», «Варианты решения» — четыре отдельные карточки общего
+   компонента (/static/blocks.css; решения пользователя 13.10 и 14.10: «визуально должны быть разделены»).
    Свои стили страницы не должны в них протекать: .kind здесь — поле вида брифа (с отступом снизу),
    а .section h3 — заголовок раздела капителью; внутри блока и редактора это обычный текст. */
 #sec-text .sc-block .kind{margin:0}
+#sec-text .sc-card{margin-bottom:var(--gap-m,16px)}
 /* «Ваш текст не сохранён» — набранное в редакторе блока, которое не попало в бриф (ревью RC-2026-10-13-8, К-1) */
 .sec-lost{display:grid;gap:6px;margin:0 0 10px;padding:8px 10px;border:1px solid var(--warning,#b26b00);border-radius:8px;background:var(--warning-bg,#fff4e0);font-size:0.875rem}
 .sec-lost q{display:block;max-height:6.5em;overflow:auto;color:var(--ink-2);white-space:pre-wrap}
@@ -160,10 +156,6 @@ textarea::placeholder{color:var(--ink-3);font-style:italic;opacity:.8}
 .lesson small{color:var(--ink-3);font-size:0.75rem}
 .lesson .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .lesson .btn{padding:4px 12px;font-size:0.8125rem}
-.field2{display:grid;gap:5px;margin:0 0 12px}
-.field2 label{font-size:0.8125rem;font-weight:600;color:var(--ink-2)}
-.field2 label small{font-weight:400;color:var(--ink-3)}
-.field2 textarea{font:0.875rem/1.45 var(--font);min-height:0}
 /* реестр готовых брифов: кварталы-аккордеоны под шагами работы */
 .talk-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px 0;border-top:1px solid var(--line)}
 .talk-row:first-child{border-top:0}
@@ -410,30 +402,15 @@ details.adv .grid2{margin-top:12px}
         <div class="run-row"><button class="btn" type="button" id="talks-save">Пересобрать с этими подписями</button><span class="save-state" id="talks-hint" role="status"></span></div>
       </div>
       <div class="section" id="sec-text" hidden>
-        <h3>История и текущий статус</h3>
-        <p class="note" id="sec-text-note">Текст собран из справки по правилам. Нажмите на блок — поправьте прямо здесь: заголовок, список и обычный абзац задают вид абзаца в документе, полужирный уходит в Word, остальное оформление задаёт шаблон брифа. Что вы поправили, программа учтёт в правилах на будущее: разовая правка чисел правилом не станет, а повторяющаяся ошибка стиля или структуры — станет.</p>
+        <p class="note" id="sec-text-note"></p>
         <div class="sec-lost" id="sec-lost" role="status" hidden></div>
         <div id="sec-text-blocks"></div>
+        <div class="run-row"><span class="save-state" id="apply-hint" role="status"></span></div>
       </div>
       <div class="section" id="sec-lessons" hidden>
         <h3>Правила из правок</h3>
         <p class="note">Из правок абзацев программа выводит предложения к правилам этого вида брифа. Правилом для всех предложение становится только после «Принять»; принятое можно отозвать здесь же.</p>
         <div id="list-lessons"></div>
-      </div>
-      <div class="section" id="sec-prob">
-        <h3>Проблематика и варианты решения</h3>
-        <p class="note">Отмеченное сразу попадает в бриф — отдельно сохранять не нужно. Текст можно поправить прямо в строке. Пока ничего не выбрано, в брифе стоит «Отсутствует» и «Не требуются».</p>
-        <ul class="picks" id="list-sig"></ul>
-        <div class="field2">
-          <label for="own-problems">Своя формулировка проблемы <small>— каждая с новой строки</small></label>
-          <textarea id="own-problems" rows="2" placeholder="Например: отсутствие финансирования на строительство детского сада"></textarea>
-        </div>
-        <ul class="picks" id="list-sol" hidden></ul>
-        <div class="field2">
-          <label for="solutions">Варианты решения <small>— каждый с новой строки; строка с двоеточием в конце станет вводной</small></label>
-          <textarea id="solutions" rows="3" placeholder="Например: Рекомендовать Правительству региона: …"></textarea>
-        </div>
-        <div class="run-row"><span class="save-state" id="apply-hint" role="status"></span></div>
       </div>
       <p class="service" id="service-links">Для разбора:
         <a class="link" id="dl-report" href="#">отчёт проверки</a> ·
@@ -959,7 +936,7 @@ function updateButtons(){
     busy ? "Идёт обработка…" :
     done ? (what === "саммари"
             ? "Саммари готово. «Сделать заново» снова отправит доклады в Искру; ваши подписи докладчиков сохранятся."
-            : "Бриф готов. «Сделать заново» снова отправит справку в Искру; отмеченная проблематика сохранится.") :
+            : "Бриф готов. «Сделать заново» снова отправит справку в Искру; проблематика и варианты решения сохранятся.") :
     what === "саммари"
       ? "Доклады уйдут в Искру, числа будут сверены с самими докладами, затем соберётся документ Word."
       : "Справка уйдёт в Искру, ответ будет сверен со справкой, затем соберётся документ Word.";
@@ -968,7 +945,7 @@ function updateButtons(){
 /* ---------- обработка ---------- */
 async function start(mode){
   if (mode === "auto" && hasResult() &&
-      !confirm("Сделать бриф заново? Справка снова уйдёт в Искру (3–5 минут). Отмеченная проблематика и варианты решения сохранятся.")) return;
+      !confirm("Сделать бриф заново? Справка снова уйдёт в Искру (3–5 минут). Проблематика и варианты решения сохранятся.")) return;
   if (!confirmLeaveSections()) return;
   await flushSave();
   state.lastMode = mode;
@@ -1087,8 +1064,10 @@ function renderDone(j){
     meetSay("");
   }
   renderTalks(r);
+  renderLists(r);
   renderSections(r);
-  renderPicks(r);
+  saver.saved = saveKey(collect());        // показанное — то, что в брифе: сохранять нечего
+  showSaved();
   loadAccessLine();
   loadLessons();
 }
@@ -1131,28 +1110,43 @@ function drawLessons(data){
   }
 }
 
-/* ---------- «История» и «Текущий статус»: блоки общего компонента, правки сохраняются сами ----------
-   Решение пользователя 13.10: «каждый раздел — отдельным блоком для форматирования, как в модераторе;
-   единый формат; все делаем одинаково». Раздел — карточка WorkspaceBlocks (/static/blocks.js, отдаёт
-   портал) с двумя блоками; нажатие на блок открывает общий редактор Quill с общей панелью.
-   Сервер по-прежнему принимает абзацы [{text, kind, orig, i}] — контракт /api/rebuild не менялся:
-   блок строится из абзацев, а сохранённый блок разбирается обратно в абзацы и сопоставляется
-   с прежними, чтобы правка осталась правкой абзаца (тот же orig/i), а не «всё убрали и написали заново»
-   — иначе у брифа для региона пропали бы привязка правок к собранному тексту, у общего — цитаты.
-   В Word уходят только вид абзаца (обычный · пункт списка · заголовок) и полужирный: курсив «Истории»
-   и синие скобки «Текущего статуса» — правило всего блока (build_brief.py), прочее оформление панели
-   при сохранении снимается, текст остаётся. */
+/* ---------- текст брифа: четыре отдельные карточки общего компонента, правки сохраняются сами ----------
+   Решения пользователя 13.10 («каждый раздел — отдельным блоком для форматирования, как в модераторе;
+   единый формат») и 14.10 («История», «Текущий статус», «Проблематика», «Варианты решения» — каждая
+   отдельным модулем-блоком, визуально разделены). Четыре карточки WorkspaceBlocks (/static/blocks.js,
+   отдаёт портал), в каждой один блок; нажатие на блок открывает общий редактор Quill с общей панелью.
+   «История» и «Текущий статус»: сервер по-прежнему принимает абзацы [{text, kind, orig, i}] — контракт
+   /api/rebuild не менялся: блок строится из абзацев, а сохранённый блок разбирается обратно в абзацы и
+   сопоставляется с прежними, чтобы правка осталась правкой абзаца (тот же orig/i), а не «всё убрали и
+   написали заново» — иначе у брифа для региона пропали бы привязка правок к собранному тексту, у общего —
+   цитаты. В Word уходят только вид абзаца (обычный · пункт списка · заголовок) и полужирный: курсив
+   «Истории» и синие скобки «Текущего статуса» — правило всего блока (build_brief.py), прочее оформление
+   панели при сохранении снимается, текст остаётся.
+   «Проблематика» и «Варианты решения»: блок — список пунктов (problems / solutions — плоские строки, как
+   прежде); все предложения из справки новый бриф получает на сервере при первой сборке, выбор куратора —
+   правка блока; экран сам ничего не сохраняет. selection всегда {picks: [], own: problems, sol_picks: [], sol_own: solutions}. */
 const SECTION_BLOCKS = [
   { id: "history", label: "История", bucket: "org" },
   { id: "status", label: "Текущий статус", bucket: "report" },
 ];
+// pool — поле результата с предложениями из справки; empty — что стоит в документе при пустом блоке
+const LIST_BLOCKS = [
+  { id: "problems", label: "Проблематика", bucket: "problem", pool: "signals", empty: "Отсутствует",
+    act: "fill", actLabel: "Все предложения из справки",
+    note: "каждый пункт — отдельная проблема" },
+  { id: "solutions", label: "Варианты решения", bucket: "decision", pool: "solution_signals", empty: "Не требуются",
+    act: "fill", actLabel: "Все варианты из справки",
+    note: "каждый пункт — вариант; строка с двоеточием в конце — вводная, без маркера" },
+];
+const ALL_BLOCKS = [...SECTION_BLOCKS, ...LIST_BLOCKS];
 const SECTION_KINDS = ["p", "bullet", "head"];
-const SECTION_NOTE = "Текст собран из справки по правилам. Нажмите на блок — поправьте прямо здесь: заголовок, список "
-  + "и обычный абзац задают вид абзаца в документе, полужирный уходит в Word, остальное оформление задаёт шаблон брифа. "
-  + "Что вы поправили, программа учтёт в правилах на будущее: разовая правка чисел правилом не станет, "
-  + "а повторяющаяся ошибка стиля или структуры — станет.";
+const SECTION_NOTE = "Нажмите на блок — поправьте прямо здесь, правка сохранится сама. В Word уходят вид абзаца "
+  + "(обычный, список, заголовок) и полужирный; правки «Истории» и «Текущего статуса» программа учтёт в правилах на будущее. "
+  + "В «Проблематику» и «Варианты решения» нового брифа сразу внесены все предложения из справки — оставьте нужные; "
+  + "пустой блок — «Отсутствует» и «Не требуются».";
 const _PARA_PURIFY_CFG = { ALLOWED_TAGS: ["p", "strong", "b", "br"], ALLOWED_ATTR: [] };
-// state.sections — абзацы разделов ровно в том виде, в каком уйдут на сервер (null — раздела нет)
+// state.sections — абзацы разделов ровно в том виде, в каком уйдут на сервер (null — раздела нет);
+// state.lists — пункты проблематики и вариантов решения {problems, solutions} (null — у саммари)
 const secView = { view: null, ro: null };
 
 function _escHtml(s){ return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
@@ -1355,28 +1349,66 @@ function sectionsReadOnly(){
    сохранён» — набранное не пропадает молча (onEditLost, как в «Тезисах»). */
 function secKey(){ return String(state.currentFolder || state.job || ""); }
 const secLost = { items: [] };      // [{key, section, label, html}] — набранное, не попавшее в бриф
+// Плоский текст пункта проблематики/решения: обычные пробелы и переносы схлопнуты, неразрывные — как есть
+// (так же чистит сервер, clean_lines)
+function _flat(s){ return String(s == null ? "" : s).replace(/[ \t\r\n]+/g, " ").trim(); }
+// Пункты → HTML блока, как их соберёт сервер (build_brief.listed): один пункт — абзац; несколько —
+// маркированный список, а строка с двоеточием в конце — вводная, обычным абзацем без маркера.
+function listHtml(items){
+  const xs = (items || []).map(_flat).filter(Boolean);
+  if (xs.length <= 1) return xs.map(x => `<p>${_escHtml(x)}</p>`).join("");
+  let out = "", inList = false;
+  for (const x of xs) {
+    if (x.endsWith(":")) { if (inList) { out += "</ul>"; inList = false; } out += `<p>${_escHtml(x)}</p>`; continue; }
+    if (!inList) { out += "<ul>"; inList = true; }
+    out += `<li>${_escHtml(x)}</li>`;
+  }
+  return out + (inList ? "</ul>" : "");
+}
+// HTML блока (после редактора) → пункты: каждый абзац, пункт списка или заголовок — одна строка, только
+// текст (оформление в этих разделах в Word не идёт); пустые выбрасываются.
+function parseListHtml(html){
+  return parseSectionHtml(html).map(p => {
+    const d = new DOMParser().parseFromString("<div>" + p.raw + "</div>", "text/html");
+    return _flat(d.body.textContent);
+  }).filter(Boolean);
+}
+function _sectionBlock(b, key, html, placeholder){
+  return { id: `${b.id}:${key}`, section: b.id, key, label: b.label, bucket: b.bucket, html, deletable: false, placeholder };
+}
+// Карточки раздела: по одной на блок, каждая со своим заголовком и действием — визуально разделены
+// (решение пользователя 14.10). «История»/«Текущий статус» — если у брифа есть абзацы разделов,
+// «Проблематика»/«Варианты решения» — у любого брифа, кроме саммари.
 function sectionCards(){
-  const sec = state.sections || {}, key = secKey();
-  return [{ id: "sections", title: "История и текущий статус",
-    actions: [{ act: "reset", label: "Вернуть текст из справки", title: "Вернуть обоим блокам текст, собранный из справки" }],
-    blocks: SECTION_BLOCKS.map(b => ({ id: `${b.id}:${key}`, section: b.id, key, label: b.label, bucket: b.bucket,
-                                       html: sectionHtml(sec[b.id]), deletable: false,
-                                       placeholder: "Абзацев нет — нажмите, чтобы написать." })) }];
+  const key = secKey(), cards = [];
+  if (state.sections) for (const b of SECTION_BLOCKS) cards.push({ id: b.id, title: b.label,
+    actions: [{ act: "reset", label: "Вернуть текст из справки", title: `Вернуть блоку «${b.label}» текст, собранный из справки` }],
+    blocks: [_sectionBlock(b, key, sectionHtml(state.sections[b.id]), "Абзацев нет — нажмите, чтобы написать.")] });
+  if (state.lists) for (const b of LIST_BLOCKS) {
+    const pool = state.lists.pool[b.id] || [];
+    cards.push({ id: b.id, title: b.label, note: b.note,
+      actions: pool.length ? [{ act: b.act, label: b.actLabel, title: `Внести в блок все ${pool.length} из справки вместо текущего текста` }] : [],
+      blocks: [_sectionBlock(b, key, listHtml(state.lists[b.id]), pool.length
+        ? `Пусто — в документе «${b.empty}». Нажмите, чтобы написать, или верните предложения из справки.`
+        : `В справке предложений не нашлось — в документе «${b.empty}». Нажмите, чтобы написать.`)] });
+  }
+  return cards;
 }
 function _blockOfId(id){
-  const m = /^(history|status):(.*)$/.exec(String(id || ""));
+  const m = /^(history|status|problems|solutions):(.*)$/.exec(String(id || ""));
   return m ? { section: m[1], key: m[2] } : null;
 }
+function _labelOf(section){ return (ALL_BLOCKS.find(x => x.id === section) || {}).label || "Раздел"; }
 // Набранное в редакторе, которое не попало в бриф, — в плашку (пустое и несохранённого нет — ничего)
 function keepLostText(info){
   if (!info || !info.dirty || !WorkspaceBlocks.textOf(info.html || "").trim()) return;
   const b = _blockOfId(info.id) || { section: "history", key: "" };
-  const label = (SECTION_BLOCKS.find(x => x.id === b.section) || {}).label || "Раздел";
+  const label = _labelOf(b.section);
   secLost.items = secLost.items.filter(x => !(x.key === b.key && x.section === b.section));
   secLost.items.push({ key: b.key, section: b.section, label, html: info.html });
   drawLostText();
   if ($("sec-text").hidden || b.key !== secKey())
-    toast(`Ваш текст в блоке «${label}» не сохранён — он ждёт в разделе «История и текущий статус» того брифа.`, 8000);
+    toast(`Ваш текст в блоке «${label}» не сохранён — он ждёт на странице того брифа, над блоками.`, 8000);
 }
 function drawLostText(){
   const box = $("sec-lost"); box.innerHTML = "";
@@ -1411,7 +1443,8 @@ function drawLostText(){
 function confirmLeaveSections(){
   const v = secView.view;
   if (!v || !v.editing()) return true;
-  if (v.isDirty() && !confirm("В разделе «История и текущий статус» есть несохранённая правка — уйти без сохранения?")) return false;
+  const label = _labelOf((_blockOfId(v.editing()) || {}).section);
+  if (v.isDirty() && !confirm(`В блоке «${label}» есть несохранённая правка — уйти без сохранения?`)) return false;
   v.close();
   return true;
 }
@@ -1424,12 +1457,25 @@ function dropSectionEditor(){
   v.close();
   keepLostText(info);
 }
+// В одном блоке несохранённая правка — компонент другой блок не откроет (набранное не должно пропасть).
+// Чтобы нажатие не выглядело «не работает», говорим, что сделать.
+function warnBusyEditor(e){
+  const v = secView.view;
+  if (!v || !v.isDirty()) return;
+  if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+  const t = e.target && e.target.closest && e.target.closest(e.type === "keydown" ? ".txt[data-txt]" : '.txt[data-txt], .del[data-act="edit"]');
+  const blk = t && t.closest(".sc-block");
+  if (!blk || t.classList.contains("editing") || blk.dataset.block === v.editing()) return;
+  toast(`Сначала сохраните или отмените правку в блоке «${_labelOf((_blockOfId(v.editing()) || {}).section)}».`, 6000);
+}
+$("sec-text").addEventListener("click", warnBusyEditor, true);
+$("sec-text").addEventListener("keydown", warnBusyEditor, true);
 function drawSectionBlocks(){
   const box = $("sec-text-blocks");
   const why = sectionsReadOnly(), ro = !!why;
   $("sec-text-note").textContent = why ? `${why} Текст собран из справки по правилам.` : SECTION_NOTE;
   if (typeof WorkspaceBlocks === "undefined") {      // общий компонент отдаёт портал; нет его — только текст
-    box.innerHTML = sectionCards()[0].blocks.map(b => `<p><b>${_escHtml(b.label)}</b></p>${b.html}`).join("")
+    box.innerHTML = sectionCards().flatMap(c => c.blocks).map(b => `<p><b>${_escHtml(b.label)}</b></p>${b.html}`).join("")
       + '<p class="hint">Редактор блоков не загрузился — обновите страницу.</p>';
     return;
   }
@@ -1446,30 +1492,47 @@ function drawSectionBlocks(){
   secView.view = WorkspaceBlocks.mount(fresh, {
     cards: sectionCards(), readOnly: ro,
     onSave: saveSectionBlock,
-    onAction: ({ act }) => { if (act === "reset") resetSections(); },
+    onAction: ({ card, act }) => {
+      if (act === "reset") resetSections([card.id]);
+      else if (act === "fill") fillList(card.id);
+    },
     onEditLost: keepLostText,
   });
 }
 function saveSectionBlock({ block, html }){
-  if (!state.sections) return Promise.reject(new Error("Раздела нет — обновите страницу."));
   // правка пишется только в свой бриф (К-1): блок другого брифа сюда попасть не должен
-  if (block.key !== secKey() || !SECTION_BLOCKS.some(b => b.id === block.section))
+  if (block.key !== secKey() || !ALL_BLOCKS.some(b => b.id === block.section))
     return Promise.reject(new Error("Этот блок относится к другому брифу — текст не сохранён."));
-  state.sections[block.section] = mergeSection(state.sections[block.section] || [], parseSectionHtml(html));
+  if (SECTION_BLOCKS.some(b => b.id === block.section)) {
+    if (!state.sections) return Promise.reject(new Error("Раздела нет — обновите страницу."));
+    state.sections[block.section] = mergeSection(state.sections[block.section] || [], parseSectionHtml(html));
+  } else {
+    if (!state.lists) return Promise.reject(new Error("Раздела нет — обновите страницу."));
+    state.lists[block.section] = keepListLines(state.lists[block.section], parseListHtml(html));
+  }
   // компонент закроет редактор с тем, что набрано; следом показываем то, что уйдёт в Word
-  // (оформление панели, кроме вида абзаца и полужирного, снято)
+  // (оформление панели, кроме вида абзаца и полужирного, снято; пункты проблематики — по строке)
   setTimeout(drawSectionBlocks, 0);
   scheduleSave(0);
   return true;
 }
-function resetSections(){
+// Перед заменой текста блока действием карточки: редактор этого блока закрыть, иначе набранное легло бы
+// поверх замены; редактор другого блока остаётся открытым (update() переносит его живым)
+function _closeEditorOf(ids){
+  const v = secView.view, b = v && _blockOfId(v.editing());
+  if (b && ids.includes(b.section)) v.close();
+}
+function resetSections(ids = SECTION_BLOCKS.map(b => b.id)){
   if (!state.sections) return;
-  const topic = SECTION_BLOCKS.some(b => (state.sections[b.id] || []).some(it => typeof it.i === "number"));
-  if (!confirm("Вернуть «Истории» и «Текущему статусу» текст, собранный из справки? "
+  ids = ids.filter(id => SECTION_BLOCKS.some(b => b.id === id));
+  if (!ids.length) return;
+  const topic = ids.some(id => (state.sections[id] || []).some(it => typeof it.i === "number"));
+  const names = ids.map(id => `«${_labelOf(id)}»`).join(" и ");
+  if (!confirm(`Вернуть блоку ${names} текст, собранный из справки? `
       + (topic ? "Абзацы, которые вы правили или добавили, будут убраны." : "Ваши правки и добавленные абзацы пропадут."))) return;
-  if (secView.view && secView.view.editing()) secView.view.close();   // набранное не ляжет поверх сброса
-  for (const b of SECTION_BLOCKS) {
-    state.sections[b.id] = (state.sections[b.id] || []).flatMap(it => {
+  _closeEditorOf(ids);
+  for (const id of ids) {
+    state.sections[id] = (state.sections[id] || []).flatMap(it => {
       if (it.orig) return [{ ...it, text: it.orig, kind: it.orig_kind || it.kind, manual: false }];
       if (typeof it.i === "number" && !it.manual && String(it.text || "").trim()) return [it];
       return [];
@@ -1478,12 +1541,53 @@ function resetSections(){
   drawSectionBlocks();
   scheduleSave(0);
 }
+// «Все предложения из справки» / «Все варианты из справки»: блок заново — все предложения, текст блока заменяется
+function fillList(id){
+  const b = LIST_BLOCKS.find(x => x.id === id);
+  if (!b || !state.lists) return;
+  const pool = state.lists.pool[id] || [];
+  if (!pool.length) { toast("В справке таких предложений нет."); return; }
+  if (!confirm(`Внести в «${b.label}» все предложения из справки (${pool.length})? Текст блока будет заменён — `
+      + "ваши правки и добавленные пункты пропадут.")) return;
+  _closeEditorOf([id]);
+  state.lists[id] = [...pool];
+  drawSectionBlocks();
+  scheduleSave(0);
+}
+// Проблематика и варианты решения брифа (решение пользователя 14.10). В блоке — ровно то, что в брифе
+// (r.problems / r.solutions, плоские строки; у старых брифов с галочками picks — их текущий текст).
+// Экран при открытии ничего не сохраняет (ревью RC-2026-10-14-1, К-1/К-2): все предложения из справки
+// новый бриф получает на сервере при первой сборке (server.fill_from_signals); готовый бриф, где куратор
+// ничего не отметил («Отсутствует»), остаётся как есть — предложения в него вносит только действие
+// «Все предложения из справки» / «Все варианты из справки».
+function renderLists(r){
+  if (r.engine === "summary") { state.lists = null; return; }
+  const clean = xs => (Array.isArray(xs) ? xs : []).map(_flat).filter(Boolean);
+  state.lists = { problems: clean(r.problems), solutions: clean(r.solutions),
+                  pool: { problems: clean(r.signals), solutions: clean(r.solution_signals) } };
+}
+// Строки блока после «Сохранить» → пункты. Строка, чьи слова совпали с прежним пунктом, отдаётся прежней
+// строкой как есть: редактор при показе превращает неразрывный пробел (разряды чисел «1 025») в обычный,
+// и без этого любое «Сохранить» стирало бы его во всех пунктах, а «Сохранить» без правки слало бы запрос
+// и писало в журнал «убрано X / добавлено X» (ревью RC-2026-10-14-1, Н-1).
+function keepListLines(prev, lines){
+  const used = new Set();
+  return lines.map(line => {
+    const k = _norm(line);
+    const j = (prev || []).findIndex((x, n) => !used.has(n) && _norm(x) === k);
+    if (j < 0) return line;
+    used.add(j);
+    return prev[j];
+  });
+}
 function renderSections(r){
   const sec = r.sections;
-  $("sec-text").hidden = r.engine === "summary" || !sec;
-  if ($("sec-text").hidden) { dropSectionEditor(); state.sections = null; return; }
-  state.sections = {};
-  for (const b of SECTION_BLOCKS) state.sections[b.id] = (sec[b.id] || []).map(it => ({ ...it }));
+  $("sec-text").hidden = r.engine === "summary";      // у саммари своего текста брифа нет — только подписи докладчиков
+  if ($("sec-text").hidden) { dropSectionEditor(); state.sections = null; state.lists = null; return; }
+  if (sec) {
+    state.sections = {};
+    for (const b of SECTION_BLOCKS) state.sections[b.id] = (sec[b.id] || []).map(it => ({ ...it }));
+  } else state.sections = null;
   drawSectionBlocks();
 }
 function collectSections(){
@@ -1504,7 +1608,6 @@ function collectSections(){
 function renderTalks(r){
   const box = $("list-talks"), talks = r.talks || [];
   $("sec-talks").hidden = r.engine !== "summary" || !talks.length;
-  $("sec-prob").hidden = r.engine === "summary";          // у саммари своей проблематики нет
   if ($("sec-talks").hidden) return;
   box.innerHTML = "";
   talks.forEach((t, i) => {
@@ -1668,93 +1771,25 @@ $("talks-save").onclick = async () => {
   btn.disabled = false;
 };
 
-/* ---------- проблематика: выбор сохраняется в бриф автоматически ---------- */
-function autosize(t){ t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; }
-function autosizeAll(){ document.querySelectorAll("#list-sig textarea, #list-sol textarea").forEach(autosize); }
-let resizeTimer; window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(autosizeAll, 100); });
-
-function renderPicks(r){
-  const ls = $("list-sig"); ls.innerHTML = "";
-  const pool = r.signals || [];
-  const sel = r.selection;
-  const byIndex = new Map();
-  let own;
-  if (sel && Array.isArray(sel.picks)) {
-    sel.picks.forEach(p => byIndex.set(p.i, p.text));
-    own = sel.own || [];
-  } else {                                             // старые брифы: сопоставляем по тексту
-    const rest = [...(r.problems || [])];
-    pool.forEach((text, i) => { const k = rest.findIndex(p => norm(p) === norm(text)); if (k >= 0) { byIndex.set(i, rest[k]); rest.splice(k, 1); } });
-    own = rest;
-  }
-  pool.forEach((text, i) => {
-    const item = document.createElement("li"); item.className = "pick"; item.dataset.i = i;
-    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = byIndex.has(i);
-    const ta = document.createElement("textarea"); ta.rows = 1; ta.value = byIndex.get(i) ?? text;
-    cb.setAttribute("aria-label", "Внести в проблематику: " + text.slice(0, 80));
-    ta.setAttribute("aria-label", "Текст пункта проблематики");
-    const sync = () => item.classList.toggle("on", cb.checked);
-    cb.onchange = () => { sync(); scheduleSave(0); };
-    ta.oninput = () => { autosize(ta); if (!cb.checked) { cb.checked = true; sync(); } scheduleSave(); };
-    item.append(cb, ta); ls.appendChild(item); sync();
-  });
-  requestAnimationFrame(autosizeAll);
-  if (!pool.length) { const el = document.createElement("li"); el.className = "hint"; el.textContent = "Явных кандидатов не найдено — впишите проблему сами, если она есть."; ls.appendChild(el); }
-  $("own-problems").value = own.join("\n");
-  renderSolPicks(r);
-  saver.saved = saveKey(collect());
-  showSaved(r.problems || [], r.solutions || []);
-}
-function lines(id){ return $(id).value.split("\n").map(s => s.trim()).filter(Boolean); }
-function renderSolPicks(r){
-  const pool = r.solution_signals || [], ls = $("list-sol");
-  ls.innerHTML = ""; ls.hidden = !pool.length;
-  const sel = r.selection, byIndex = new Map();
-  let own;
-  if (sel && Array.isArray(sel.sol_picks)) {
-    sel.sol_picks.forEach(p => byIndex.set(p.i, p.text));
-    own = sel.sol_own || [];
-  } else {                                             // бриф сделан до появления кандидатов — ищем по тексту
-    const rest = [...(r.solutions || [])];
-    pool.forEach((text, i) => { const k = rest.findIndex(x => norm(x) === norm(text)); if (k >= 0) { byIndex.set(i, rest[k]); rest.splice(k, 1); } });
-    own = rest;
-  }
-  pool.forEach((text, i) => {
-    const item = document.createElement("li"); item.className = "pick"; item.dataset.i = i;
-    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = byIndex.has(i);
-    const ta = document.createElement("textarea"); ta.rows = 1; ta.value = byIndex.get(i) ?? text;
-    cb.setAttribute("aria-label", "Внести в варианты решения: " + text.slice(0, 80));
-    ta.setAttribute("aria-label", "Текст варианта решения");
-    const sync = () => item.classList.toggle("on", cb.checked);
-    cb.onchange = () => { sync(); scheduleSave(0); };
-    ta.oninput = () => { autosize(ta); if (!cb.checked) { cb.checked = true; sync(); } scheduleSave(); };
-    item.append(cb, ta); ls.appendChild(item); sync();
-  });
-  $("solutions").value = own.join("\n");
-}
-
+/* ---------- сохранение: всё, что на экране (блоки, подписи докладчиков), уходит в бриф само ---------- */
+// Проблематика и варианты решения — пункты блоков (state.lists). Выбор хранится как свои формулировки:
+// selection.picks/sol_picks (галочки по номерам предложений) больше не ставятся — контракт /api/rebuild
+// и clean_selection те же, старые брифы с picks показывают свой текущий текст (r.problems/r.solutions).
 function collect(){
-  const picks = [...document.querySelectorAll("#list-sig .pick")]
-    .filter(el => el.querySelector("input").checked)
-    .map(el => ({ i: Number(el.dataset.i), text: el.querySelector("textarea").value.trim() }))
-    .filter(p => p.text);
-  const own = lines("own-problems");
-  const solPicks = [...document.querySelectorAll("#list-sol .pick")]
-    .filter(el => el.querySelector("input").checked)
-    .map(el => ({ i: Number(el.dataset.i), text: el.querySelector("textarea").value.trim() }))
-    .filter(p => p.text);
-  const solOwn = lines("solutions");
-  const rev = saver.rev;
-  return { problems: picks.map(p => p.text).concat(own), solutions: solPicks.map(p => p.text).concat(solOwn),
-           selection: { picks, own, sol_picks: solPicks, sol_own: solOwn }, rev, sections: collectSections() };
+  const L = state.lists || { problems: [], solutions: [] };
+  const problems = L.problems.map(_flat).filter(Boolean), solutions = L.solutions.map(_flat).filter(Boolean);
+  return { problems, solutions, selection: { picks: [], own: problems, sol_picks: [], sol_own: solutions },
+           rev: saver.rev, sections: collectSections() };
 }
 function setSaveState(cls, text){ for (const id of ["apply-hint", "dl-state"]) { const el = $(id); el.className = "save-state" + (cls ? " " + cls : ""); el.textContent = text; } }
-function showSaved(problems, solutions){
+// «✓ В брифе: N проблем · M вариантов» — по пунктам блоков (то, что уйдёт в документ)
+function showSaved(){
   if (isSummary()) {                       // у саммари правится не проблематика, а подписи докладчиков
     const n = (((state.jobInfo || {}).result || {}).talks || []).length;
     setSaveState("", n ? `✓ В саммари: ${n} ${plural(n, "доклад", "доклада", "докладов")}` : "");
     return;
   }
+  const { problems, solutions } = collect();
   setSaveState("", "✓ В брифе: " +
     (problems.length ? `${problems.length} ${plural(problems.length, "проблема", "проблемы", "проблем")}` : "проблематика «Отсутствует»") + " · " +
     (solutions.length ? `${solutions.length} ${plural(solutions.length, "вариант решения", "варианта решения", "вариантов решения")}` : "решения «Не требуются»"));
@@ -1775,7 +1810,7 @@ async function saveNow(){
   while (saver.running) await saver.running;
   if (!state.job || !hasResult()) return true;
   const data = collect(), key = saveKey(data);
-  if (key === saver.saved) { showSaved(data.problems, data.solutions); return true; }
+  if (key === saver.saved) { showSaved(); return true; }
   const jobAtStart = state.job;
   setSaveState("busy", `Вношу изменения в ${docWord("бриф", "саммари")}…`);
   saver.running = (async () => {
@@ -1785,7 +1820,11 @@ async function saveNow(){
       saver.saved = key;
       noteRev(r.rev);              // иначе вторая галочка подряд уходит со старой отметкой и получает 409
       $("done-sub").textContent = r.docx_name;
-      showSaved(r.problems, r.solutions);
+      // то, что теперь в брифе: повторный показ (подписи докладчиков, «Вернуться к прежнему») покажет его же
+      if (state.jobInfo && state.jobInfo.result)
+        state.jobInfo.result = { ...state.jobInfo.result, problems: r.problems || data.problems,
+                                 solutions: r.solutions || data.solutions, selection: r.selection || data.selection, rev: r.rev };
+      showSaved();
       if (r.sections && data.sections && saveKey(collect()) === key) {   // абзацы после пересборки: свежие orig/i
         state.jobInfo = { ...(state.jobInfo || {}), result: { ...((state.jobInfo || {}).result || {}), ...r } };
         renderSections(r); saver.saved = saveKey(collect());
@@ -1798,7 +1837,6 @@ async function saveNow(){
   if (ok && hasResult() && saveKey(collect()) !== saver.saved) return saveNow();
   return ok;
 }
-["own-problems", "solutions"].forEach(id => $(id).addEventListener("input", () => scheduleSave()));
 function isDirty(){ return !!(state.job && hasResult() && (saver.timer || saver.running || saveKey(collect()) !== saver.saved)); }
 async function flushSave(){ if (isDirty()) await saveNow(); }
 
@@ -2403,7 +2441,7 @@ async function loadAccessLine(){
   if (!state.me.portal || !state.currentFolder) return;
   try { acc.info = await api(`api/access?folder=${encodeURIComponent(state.currentFolder)}`); accessLine(acc.info); }
   catch { return; }
-  if (state.sections) drawSectionBlocks();   // бриф открыт вам на «смотреть» — блоки только для чтения
+  if (state.sections || state.lists) drawSectionBlocks();   // бриф открыт вам на «смотреть» — блоки только для чтения
 }
 function drawAccess(){
   const info = acc.info, ul = $("access-list"); ul.innerHTML = "";
